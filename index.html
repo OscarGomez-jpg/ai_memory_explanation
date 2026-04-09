@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt & Recall - El Juego de la Memoria IA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gochi+Hand&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <p class="eyebrow">Memory Architect</p>
+        <h1>The Gemma Budget Challenge</h1>
+        <p id="level-description">Selecciona infraestructura, ejecuta inferencia y consigue el output exacto sin romper
+            el presupuesto.</p>
+
+        <main id="stage">
+            <section id="left-panel">
+                <div id="budget-card" role="status" aria-live="polite">
+                    <h2>Budget</h2>
+                    <p>Total: <strong id="total-budget-value">0</strong> cr</p>
+                    <p>Spend: <strong id="spend-value">0</strong> cr</p>
+                    <p>Restante: <strong id="budget-value">0</strong> cr</p>
+                    <p>Ronda: <strong id="round-value">0/0</strong></p>
+                    <p>Exitos: <strong id="score-value">0</strong></p>
+                </div>
+
+                <h2>Infra Cards</h2>
+                <div id="infra-cards"></div>
+            </section>
+
+            <section id="center-panel">
+                <div class="model-badge">Modelo activo: <strong id="model-name">gemma4:2be (simulado)</strong></div>
+                <canvas id="game-board" width="980" height="560" aria-label="Tablero del juego"></canvas>
+                <ol id="turn-log" aria-live="polite"></ol>
+            </section>
+
+            <section id="right-panel">
+                <div class="ticket-box">
+                    <h2>Ticket Panel</h2>
+                    <p id="ticket-problem-title">-</p>
+                    <div class="bubble" id="customer-message">-</div>
+                    <p class="mini-tag">Context Window: <span id="context-window-value">-</span></p>
+                </div>
+
+                <div class="sim-box">
+                    <h2>Output Simulator</h2>
+                    <p><strong>Esperado:</strong> <span id="expected-output">-</span></p>
+                    <p><strong>Generado:</strong> <span id="actual-output">-</span></p>
+                    <p><strong>Estado:</strong> <span id="round-status">Pendiente</span></p>
+
+                    <div class="score-row">
+                        <span>Memory</span>
+                        <div class="meter">
+                            <div id="score-memory" class="fill"></div>
+                        </div>
+                    </div>
+                    <div class="score-row">
+                        <span>Quality</span>
+                        <div class="meter">
+                            <div id="score-quality" class="fill"></div>
+                        </div>
+                    </div>
+                    <div class="score-row">
+                        <span>Budget</span>
+                        <div class="meter">
+                            <div id="score-budget" class="fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <button type="button" id="run-round">Confirm Build</button>
+                    <button type="button" id="next-problem">Next Ticket</button>
+                    <button type="button" id="reset-game">Reiniciar partida</button>
+                </div>
+            </section>
+        </main>
+
+        <section id="recommendation-row" aria-label="Recomendaciones">
+            <article class="recommendation-card recommendation-a">
+                <h3>Procedural Boost</h3>
+                <p>Implementa políticas y guías de sistema (System Prompts).</p>
+                <strong>-100 cr</strong>
+            </article>
+            <article class="recommendation-card recommendation-b">
+                <h3>Episodic Logging</h3>
+                <p>Permite recuperar hilos de conversación previos.</p>
+                <strong>-200 cr</strong>
+            </article>
+            <article class="recommendation-card recommendation-c">
+                <h3>External Sync</h3>
+                <p>Conecta bases vectoriales para conocimiento en tiempo real.</p>
+                <strong>-500 cr</strong>
+            </article>
+        </section>
+    </div>
+    <script src="game.js"></script>
+</body>
+
+</html>
