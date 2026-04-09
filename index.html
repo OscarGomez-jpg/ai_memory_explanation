@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prompt & Recall - El Juego de la Memoria IA</title>
+    <title>Prompt & Recall - Memory Architect</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gochi+Hand&family=Patrick+Hand&display=swap" rel="stylesheet">
@@ -13,91 +13,66 @@
 
 <body>
     <div id="game-container">
-        <p class="eyebrow">Memory Architect</p>
-        <h1>The Gemma Budget Challenge</h1>
-        <p id="level-description">Selecciona infraestructura, ejecuta inferencia y consigue el output exacto sin romper
-            el presupuesto.</p>
+        <p class="eyebrow">Memory Lab</p>
+        <h1>Memory Architect Challenge</h1>
+        <p id="level-description">Construye la arquitectura de memoria ideal para resolver el ticket.</p>
 
         <main id="stage">
             <section id="left-panel">
-                <div id="budget-card" role="status" aria-live="polite">
+                <div id="budget-card">
                     <h2>Budget</h2>
-                    <p>Total: <strong id="total-budget-value">0</strong> cr</p>
-                    <p>Spend: <strong id="spend-value">0</strong> cr</p>
-                    <p>Restante: <strong id="budget-value">0</strong> cr</p>
-                    <p>Ronda: <strong id="round-value">0/0</strong></p>
-                    <p>Exitos: <strong id="score-value">0</strong></p>
+                    <p>Remaining: <strong id="budget-value">0</strong> cr</p>
+                    <p>Total Spend: <strong id="spend-value">0</strong> cr</p>
                 </div>
 
-                <h2>Infra Cards</h2>
-                <div id="infra-cards"></div>
+                <h2>Memory Toolbox</h2>
+                <p style="font-size: 0.9rem; margin-bottom: 10px;">Haz clic para añadir bloques al grafo:</p>
+                <div id="infra-cards">
+                    <!-- Los bloques de memoria se generarán aquí -->
+                </div>
             </section>
 
             <section id="center-panel">
-                <div class="model-badge">Modelo activo: <strong id="model-name">gemma4:2be (simulado)</strong></div>
-                <canvas id="game-board" width="980" height="560" aria-label="Tablero del juego"></canvas>
-                <ol id="turn-log" aria-live="polite"></ol>
+                <div class="model-badge">Active Build: <strong id="model-name">Custom Gemma</strong></div>
+                <canvas id="game-board" width="980" height="500"></canvas>
+                <div id="active-blocks-labels" style="margin-top: 10px; font-family: var(--font-hand); color: var(--marker-blue);"></div>
             </section>
 
             <section id="right-panel">
                 <div class="ticket-box">
-                    <h2>Ticket Panel</h2>
-                    <p id="ticket-problem-title">-</p>
+                    <div id="ticket-problem-title">Cargando ticket...</div>
                     <div class="bubble" id="customer-message">-</div>
-                    <p class="mini-tag">Context Window: <span id="context-window-value">-</span></p>
                 </div>
 
                 <div class="sim-box">
-                    <h2>Output Simulator</h2>
-                    <p><strong>Esperado:</strong> <span id="expected-output">-</span></p>
-                    <p><strong>Generado:</strong> <span id="actual-output">-</span></p>
-                    <p><strong>Estado:</strong> <span id="round-status">Pendiente</span></p>
-
+                    <h2>Build Stats</h2>
+                    <div class="score-row">
+                        <span>Reliability</span>
+                        <div class="meter"><div id="score-quality" class="fill"></div></div>
+                    </div>
                     <div class="score-row">
                         <span>Memory</span>
-                        <div class="meter">
-                            <div id="score-memory" class="fill"></div>
-                        </div>
+                        <div class="meter"><div id="score-memory" class="fill"></div></div>
                     </div>
-                    <div class="score-row">
-                        <span>Quality</span>
-                        <div class="meter">
-                            <div id="score-quality" class="fill"></div>
-                        </div>
-                    </div>
-                    <div class="score-row">
-                        <span>Budget</span>
-                        <div class="meter">
-                            <div id="score-budget" class="fill"></div>
-                        </div>
+                    
+                    <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+                        <p><strong>Esperado:</strong> <span id="expected-output">-</span></p>
+                        <p><strong>Generado:</strong> <span id="actual-output">-</span></p>
+                        <p><strong>Estado:</strong> <span id="round-status">Pendiente</span></p>
                     </div>
                 </div>
 
                 <div class="quick-actions">
-                    <button type="button" id="run-round">Confirm Build</button>
+                    <button type="button" id="run-round">Confirm & Run</button>
                     <button type="button" id="next-problem">Next Ticket</button>
-                    <button type="button" id="reset-game">Reiniciar partida</button>
+                    <button type="button" id="reset-game">Reset Lab</button>
                 </div>
             </section>
         </main>
-
-        <section id="recommendation-row" aria-label="Recomendaciones">
-            <article class="recommendation-card recommendation-a">
-                <h3>Procedural Boost</h3>
-                <p>Implementa políticas y guías de sistema (System Prompts).</p>
-                <strong>-100 cr</strong>
-            </article>
-            <article class="recommendation-card recommendation-b">
-                <h3>Episodic Logging</h3>
-                <p>Permite recuperar hilos de conversación previos.</p>
-                <strong>-200 cr</strong>
-            </article>
-            <article class="recommendation-card recommendation-c">
-                <h3>External Sync</h3>
-                <p>Conecta bases vectoriales para conocimiento en tiempo real.</p>
-                <strong>-500 cr</strong>
-            </article>
-        </section>
+        
+        <div id="turn-log-container" style="margin-top: 20px;">
+            <ol id="turn-log"></ol>
+        </div>
     </div>
     <script src="game.js"></script>
 </body>

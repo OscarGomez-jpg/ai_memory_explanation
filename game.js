@@ -1,66 +1,52 @@
-const MODEL_NAME = "gemma4:2be (simulado)";
+const MODEL_NAME = "Gemma 4:2be Custom";
 const START_BUDGET = 1000;
 
-const INFRA_OPTIONS = [
+// BLOQUES DE MEMORIA DISPONIBLES
+const MEMORY_BLOCKS = [
   {
     id: "base",
-    letter: "A",
-    cssClass: "infra-a",
-    name: "Base Model",
-    memoryType: "Parametric",
-    description: "Weights-only. Pure training knowledge.",
+    name: "Parametric",
+    description: "Model weights. Pure training data.",
     cost: 0,
-    contextSize: 2,
-    rag: false,
-    reliability: 0.45,
+    reliability: 0.40,
+    color: "#dcfce7",
+    mandatory: true,
   },
   {
-    id: "small",
-    letter: "B",
-    cssClass: "infra-b",
-    name: "Chat History",
-    memoryType: "Episodic",
-    description: "Stores recent interactions.",
-    cost: 40,
-    contextSize: 3,
-    rag: false,
-    reliability: 0.65,
+    id: "episodic",
+    name: "Episodic",
+    description: "Chat history & interaction logging.",
+    cost: 100,
+    reliability: 0.15,
+    color: "#fef3c7",
+    problemMatch: "Episodic",
   },
   {
-    id: "large",
-    letter: "C",
-    cssClass: "infra-c",
-    name: "Context Window",
-    memoryType: "Procedural",
-    description: "System instructions & policies.",
-    cost: 80,
-    contextSize: 5,
-    rag: false,
-    reliability: 0.80,
-  },
-  {
-    id: "rag",
-    letter: "D",
-    cssClass: "infra-d",
-    name: "Vector RAG",
-    memoryType: "External",
-    description: "Retrieves from external documents.",
+    id: "procedural",
+    name: "Procedural",
+    description: "System prompts & operating rules.",
     cost: 150,
-    contextSize: 4,
-    rag: true,
-    reliability: 0.92,
+    reliability: 0.20,
+    color: "#e0f2fe",
+    problemMatch: "Procedural",
   },
   {
-    id: "graph",
-    letter: "E",
-    cssClass: "infra-e",
-    name: "Knowledge Graph",
-    memoryType: "Semantic",
-    description: "Structured relationships & entities.",
+    id: "external",
+    name: "External",
+    description: "Vector RAG (retrieval augmented).",
     cost: 250,
-    contextSize: 6,
-    rag: true,
-    reliability: 0.98,
+    reliability: 0.25,
+    color: "#f3e8ff",
+    problemMatch: "External",
+  },
+  {
+    id: "semantic",
+    name: "Semantic",
+    description: "Knowledge Graphs & entity relationships.",
+    cost: 350,
+    reliability: 0.30,
+    color: "#fff7ed",
+    problemMatch: "Semantic",
   },
 ];
 
@@ -70,13 +56,7 @@ const PROBLEMS = [
     title: "Vuelo de Marta",
     priority: "Episodic",
     details: "Requiere recordar datos de la conversación inmediata.",
-    facts: [
-      "El cliente se llama Marta.",
-      "Su vuelo sale a las 19:30.",
-      "El codigo de reserva es Q7A9.",
-      "Su asiento es 12B.",
-      "La puerta de embarque es C4.",
-    ],
+    facts: ["Marta", "19:30", "Q7A9", "12B", "C4"],
     question: "Cual es la puerta de embarque?",
     targetKey: "puerta",
     expectedOutput: "La puerta de embarque es C4.",
@@ -86,13 +66,7 @@ const PROBLEMS = [
     title: "Documentación Técnica",
     priority: "External",
     details: "Consulta de base de conocimientos masiva.",
-    facts: [
-      "El usuario reporta error de autenticacion.",
-      "El ticket activo es INC-7781.",
-      "El entorno afectado es produccion.",
-      "La version desplegada es 2.4.1.",
-      "El rollback recomendado es 2.3.8.",
-    ],
+    facts: ["INC-7781", "2.4.1", "2.3.8"],
     question: "Que version se recomienda para rollback?",
     targetKey: "rollback",
     expectedOutput: "El rollback recomendado es 2.3.8.",
@@ -102,13 +76,7 @@ const PROBLEMS = [
     title: "Reserva de Diego",
     priority: "Semantic",
     details: "Relaciones entre entidades y preferencias.",
-    facts: [
-      "La reserva es para Diego.",
-      "Son 4 personas.",
-      "La mesa asignada es Terraza-5.",
-      "Hay alergia a nueces.",
-      "La hora de llegada es 21:15.",
-    ],
+    facts: ["Diego", "4 personas", "Terraza-5", "21:15"],
     question: "Que mesa fue asignada?",
     targetKey: "mesa",
     expectedOutput: "La mesa asignada es Terraza-5.",
@@ -118,13 +86,7 @@ const PROBLEMS = [
     title: "Políticas de Empresa",
     priority: "Procedural",
     details: "Instrucciones de actuación y protocolos.",
-    facts: [
-      "El proyecto se llama Atlas.",
-      "El sprint termina el viernes.",
-      "La API critica es billing-v2.",
-      "El responsable del hotfix es Paula.",
-      "El despliegue final es a las 23:00.",
-    ],
+    facts: ["Atlas", "Paula", "23:00"],
     question: "Quien es responsable del hotfix?",
     targetKey: "responsable",
     expectedOutput: "El responsable del hotfix es Paula.",
@@ -136,7 +98,7 @@ const gameState = {
   totalSpend: 0,
   solved: 0,
   roundIndex: 0,
-  selectedInfraId: INFRA_OPTIONS[0].id,
+  activeBlockIds: ["base"],
   latestRun: null,
   gameOver: false,
   logs: [],
@@ -145,24 +107,17 @@ const gameState = {
 const canvas = document.getElementById("game-board");
 const ctx = canvas.getContext("2d");
 
-const modelNameEl = document.getElementById("model-name");
-const totalBudgetValueEl = document.getElementById("total-budget-value");
-const spendValueEl = document.getElementById("spend-value");
 const budgetValueEl = document.getElementById("budget-value");
-const roundValueEl = document.getElementById("round-value");
-const scoreValueEl = document.getElementById("score-value");
+const spendValueEl = document.getElementById("spend-value");
 const ticketProblemTitleEl = document.getElementById("ticket-problem-title");
 const customerMessageEl = document.getElementById("customer-message");
-const contextWindowValueEl = document.getElementById("context-window-value");
-const scoreMemoryEl = document.getElementById("score-memory");
 const scoreQualityEl = document.getElementById("score-quality");
-const scoreBudgetEl = document.getElementById("score-budget");
+const scoreMemoryEl = document.getElementById("score-memory");
 const infraCardsEl = document.getElementById("infra-cards");
 const turnLogEl = document.getElementById("turn-log");
 const expectedOutputEl = document.getElementById("expected-output");
 const actualOutputEl = document.getElementById("actual-output");
 const roundStatusEl = document.getElementById("round-status");
-const levelDescriptionEl = document.getElementById("level-description");
 
 const runRoundBtn = document.getElementById("run-round");
 const nextProblemBtn = document.getElementById("next-problem");
@@ -178,260 +133,116 @@ function resetGame() {
   gameState.totalSpend = 0;
   gameState.solved = 0;
   gameState.roundIndex = 0;
-  gameState.selectedInfraId = INFRA_OPTIONS[1].id;
+  gameState.activeBlockIds = ["base"];
   gameState.latestRun = null;
   gameState.gameOver = false;
   gameState.logs = [];
-  addLog("Nueva partida iniciada.");
+  addLog("Lab de Memoria reiniciado.");
   updateUI();
 }
 
 function addLog(text) {
   gameState.logs.push(text);
-  if (gameState.logs.length > 40) {
-    gameState.logs = gameState.logs.slice(-40);
-  }
+  if (gameState.logs.length > 20) gameState.logs.shift();
 }
 
 function goToNextProblem() {
   if (gameState.roundIndex < PROBLEMS.length - 1) {
     gameState.roundIndex += 1;
     gameState.latestRun = null;
-    addLog(`Pasas al problema ${gameState.roundIndex + 1}.`);
+    gameState.activeBlockIds = ["base"]; // Limpiar para el siguiente
+    addLog(`Nuevo ticket: #${gameState.roundIndex + 1}.`);
   } else {
-    addLog("Ya estas en el ultimo problema.");
+    addLog("Has terminado todos los tickets.");
   }
   updateUI();
 }
 
 function runCurrentRound() {
-  if (gameState.gameOver) {
-    addLog("Partida finalizada. Reinicia para seguir jugando.");
-    updateUI();
-    return;
-  }
+  if (gameState.gameOver) return;
 
   const problem = PROBLEMS[gameState.roundIndex];
-  const infra = getSelectedInfra();
+  
+  // Calcular coste del build actual
+  let currentBuildCost = 0;
+  gameState.activeBlockIds.forEach(id => {
+    const block = MEMORY_BLOCKS.find(b => b.id === id);
+    currentBuildCost += block.cost;
+  });
 
-  if (!problem || !infra) {
+  // Coste de inferencia (basado en la complejidad del problema)
+  const inferenceCost = 20; 
+  const totalCost = currentBuildCost + inferenceCost;
+
+  if (gameState.budget < totalCost) {
+    addLog("Presupuesto insuficiente para este build.");
     return;
   }
-
-  const baseCost = infra.cost;
-  const tokenCost = Math.ceil(problem.facts.join(" ").length / 24);
-  const totalCost = baseCost + tokenCost;
 
   gameState.budget -= totalCost;
   gameState.totalSpend += totalCost;
-  addLog(
-    `Ronda ${gameState.roundIndex + 1}: ${infra.name} cuesta ${totalCost} cr.`,
-  );
 
-  if (gameState.budget < 0) {
-    gameState.gameOver = true;
-    gameState.latestRun = {
-      expected: problem.expectedOutput,
-      actual: "Sin ejecucion: presupuesto agotado antes de inferir.",
-      success: false,
-      flow: [
-        "IN  >> ticket ingest",
-        `$$  >> coste total ${totalCost} cr`,
-        "XX  >> presupuesto negativo, run abortado",
-      ],
-      contextCards: [],
-      ltmCards: [],
-      infra,
-      problem,
-    };
-    addLog("Te quedaste sin presupuesto. Game over.");
-    updateUI();
-    return;
-  }
+  // Lógica de éxito: ¿Tiene el bloque necesario para la prioridad del problema?
+  const hasRequiredMemory = gameState.activeBlockIds.some(id => {
+    const b = MEMORY_BLOCKS.find(block => block.id === id);
+    return b.problemMatch === problem.priority;
+  });
 
-  const simulation = simulateInference(problem, infra);
+  // Probabilidad base
+  let successProb = 0.4; // Base Model
+  gameState.activeBlockIds.forEach(id => {
+    const b = MEMORY_BLOCKS.find(block => block.id === id);
+    if (!b.mandatory) successProb += 0.1; // Bonus por cada bloque
+    if (b.problemMatch === problem.priority) successProb += 0.4; // Gran bonus por match
+  });
+
+  const roll = Math.random();
+  const success = roll <= successProb;
+
   gameState.latestRun = {
     expected: problem.expectedOutput,
-    actual: simulation.output,
-    success: simulation.output === problem.expectedOutput,
-    flow: simulation.flow,
-    contextCards: simulation.contextCards,
-    ltmCards: simulation.ltmCards,
-    metrics: simulation.metrics,
-    totalCost,
-    infra,
-    problem,
+    actual: success ? problem.expectedOutput : (roll > 0.9 ? "Error de alucinación." : "Lo siento, no tengo esa información."),
+    success,
+    metrics: {
+        quality: Math.min(100, Math.round(successProb * 100)),
+        memory: Math.round((gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100)
+    }
   };
 
-  if (gameState.latestRun.success) {
+  if (success) {
     gameState.solved += 1;
-    addLog("Salida valida: match exacto con el objetivo.");
+    addLog(`¡Éxito! Build adecuado para ${problem.priority}.`);
   } else {
-    addLog("Salida no valida: no coincide con el output esperado.");
-  }
-
-  if (gameState.roundIndex === PROBLEMS.length - 1) {
-    gameState.gameOver = true;
-    addLog("Completaste todos los problemas.");
+    addLog(`Fallo: La arquitectura no recuperó el dato (${problem.priority}).`);
   }
 
   updateUI();
 }
 
-function simulateInference(problem, infra) {
-  const context = [];
-  const ltm = [];
-  const flow = [];
-
-  problem.facts.forEach((fact, idx) => {
-    if (context.length >= infra.contextSize) {
-      const evicted = context.shift();
-      if (infra.rag) {
-        ltm.push(evicted);
-        flow.push(`-> step ${idx + 1}: ${compress(evicted)} => LTM`);
-      } else {
-        flow.push(`-> step ${idx + 1}: ${compress(evicted)} => DROP`);
-      }
-    }
-    context.push(fact);
-    flow.push(`<< step ${idx + 1}: ${compress(fact)} => CTX`);
-  });
-
-  flow.push(`?? pregunta: ${problem.question}`);
-
-  const answerFromContext = context.find(
-    (line) => keyFromFact(line) === problem.targetKey,
-  );
-
-  if (answerFromContext) {
-    flow.push("!! respuesta encontrada en contexto");
-    const metrics = buildMetrics(problem, infra, context, ltm, true);
-    return {
-      output: answerFromContext,
-      flow,
-      contextCards: context.slice(),
-      ltmCards: ltm.slice(),
-      metrics,
-    };
-  }
-
-  if (infra.rag) {
-    const fromLtm = ltm.find((line) => keyFromFact(line) === problem.targetKey);
-    if (fromLtm) {
-      flow.push("@@ RAG recupera dato desde LTM");
-      const candidate = maybeCorruptOutput(fromLtm, infra.reliability);
-      const metrics = buildMetrics(
-        problem,
-        infra,
-        context,
-        ltm,
-        candidate === problem.expectedOutput,
-      );
-      return {
-        output: candidate,
-        flow,
-        contextCards: context.slice(),
-        ltmCards: ltm.slice(),
-        metrics,
-      };
-    }
-  }
-
-  flow.push("xx sin dato relevante en contexto/LTM");
-  const fallback = fallbackOutput(context);
-  const metrics = buildMetrics(problem, infra, context, ltm, false);
-  return {
-    output: fallback,
-    flow,
-    contextCards: context.slice(),
-    ltmCards: ltm.slice(),
-    metrics,
-  };
-}
-
-function buildMetrics(problem, infra, context, ltm, isCorrect) {
-  const needed = problem.facts.length;
-  const memoryCoverage = Math.min(1, (context.length + ltm.length) / needed);
-  const quality = isCorrect
-    ? infra.reliability
-    : Math.max(0.18, infra.reliability - 0.45);
-  const budgetHealth = Math.max(0, gameState.budget / START_BUDGET);
-
-  return {
-    memory: Math.round(memoryCoverage * 100),
-    quality: Math.round(quality * 100),
-    budget: Math.round(budgetHealth * 100),
-  };
-}
-
-function maybeCorruptOutput(correct, reliability) {
-  const checksum = seededChecksum(
-    correct + gameState.roundIndex + gameState.budget,
-  );
-  const normalized = (checksum % 100) / 100;
-  if (normalized <= reliability) {
-    return correct;
-  }
-  return correct.replace(/\.$/, "") + " (estimado).";
-}
-
-function fallbackOutput(context) {
-  if (context.length === 0) {
-    return "No tengo contexto suficiente para responder.";
-  }
-  return `Respuesta tentativa: ${context[context.length - 1]}`;
-}
-
-function keyFromFact(fact) {
-  const normalized = fact
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-  if (normalized.includes("puerta")) return "puerta";
-  if (normalized.includes("rollback")) return "rollback";
-  if (normalized.includes("mesa")) return "mesa";
-  if (normalized.includes("responsable")) return "responsable";
-  return "otro";
-}
-
-function seededChecksum(text) {
-  let acc = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    acc = (acc + text.charCodeAt(i) * (i + 3)) % 997;
-  }
-  return acc;
-}
-
-function compress(text) {
-  return text.length > 34 ? `${text.slice(0, 31)}...` : text;
-}
-
-function getSelectedInfra() {
-  return INFRA_OPTIONS.find((item) => item.id === gameState.selectedInfraId);
-}
-
-function renderInfraButtons() {
+function renderToolbox() {
   infraCardsEl.innerHTML = "";
 
-  INFRA_OPTIONS.forEach((infra) => {
+  MEMORY_BLOCKS.forEach((block) => {
+    const isActive = gameState.activeBlockIds.includes(block.id);
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = `${infra.cssClass} infra-btn${gameState.selectedInfraId === infra.id ? " selected" : ""}`;
+    btn.className = `infra-btn ${isActive ? "selected" : ""}`;
+    btn.style.borderLeft = `8px solid ${block.color}`;
     
     btn.innerHTML = `
-      <div style="font-family: var(--font-accent); font-size: 1.1rem; color: var(--marker-blue);">${infra.memoryType} Memory</div>
-      <div style="font-weight: bold; font-size: 1.3rem; margin: 4px 0;">${infra.name}</div>
-      <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 8px;">${infra.description}</div>
-      <div style="font-size: 0.9rem; border-top: 1px dashed #333; padding-top: 5px;">
-        <span>Cost: <strong>${infra.cost} cr</strong></span> | 
-        <span>Slots: <strong>${infra.contextSize}</strong></span>
-      </div>
+      <div style="font-weight: bold;">${block.name}</div>
+      <div style="font-size: 0.8rem; opacity: 0.7;">${block.description}</div>
+      <div style="margin-top: 5px; font-weight: bold;">Cost: ${block.cost} cr</div>
     `;
 
+    btn.disabled = block.mandatory;
+
     btn.addEventListener("click", () => {
-      gameState.selectedInfraId = infra.id;
-      addLog(`Infra seleccionada: ${infra.name} (${infra.memoryType}).`);
+      if (isActive) {
+        gameState.activeBlockIds = gameState.activeBlockIds.filter(id => id !== block.id);
+      } else {
+        gameState.activeBlockIds.push(block.id);
+      }
       updateUI();
     });
 
@@ -439,431 +250,160 @@ function renderInfraButtons() {
   });
 }
 
-function drawBoard() {
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-
-  ctx.clearRect(0, 0, w, h);
-
-  // Background - subtle whiteboard texture
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, w, h);
-
-  const problem = PROBLEMS[gameState.roundIndex];
-  const infra = getSelectedInfra();
-  const latest = gameState.latestRun;
-
-  drawTopLabel(problem, infra, w);
-  drawCentralArena(w, h, infra, latest);
-}
-
-function drawTopLabel(problem, infra, width) {
-  ctx.save();
-  ctx.fillStyle = "#1e293b";
-  ctx.font = "24px 'Architects Daughter'";
-  ctx.fillText("WHITEBOARD SESSION: Memory Flow", 40, 40);
-  
-  ctx.font = "16px 'Patrick Hand'";
-  ctx.fillStyle = "#64748b";
-  ctx.fillText(`Active Ticket: ${problem.title} | Infrastructure: ${infra.name}`, 40, 65);
-  ctx.restore();
-}
+// --- CANVAS DRAWING ---
 
 function roughLine(x1, y1, x2, y2, color = "#333", width = 2) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.lineCap = "round";
-  
-  const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
-  const segments = Math.max(2, Math.floor(length / 10));
-  
+  const segments = 10;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
-  
   for(let i=1; i<=segments; i++) {
     const t = i / segments;
-    const nextX = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
-    const nextY = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
-    ctx.lineTo(nextX, nextY);
+    const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
+    const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
+    ctx.lineTo(nx, ny);
   }
-  
   ctx.stroke();
   ctx.restore();
 }
 
-function roughRect(x, y, w, h, color = "#333", width = 2) {
-  roughLine(x, y, x + w, y, color, width);
-  roughLine(x + w, y, x + w, y + h, color, width);
-  roughLine(x + w, y + h, x, y + h, color, width);
-  roughLine(x, y + h, x, y, color, width);
-}
-
 function roughCircle(cx, cy, r, fill = "transparent", stroke = "#333") {
   ctx.save();
-  
-  // Fill first
   if (fill !== "transparent") {
     ctx.fillStyle = fill;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
   }
-
-  // Stroke with "rough" effect
   ctx.strokeStyle = stroke;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  
-  const segments = 24;
+  const segments = 20;
   for(let i=0; i<=segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
     const jitter = (Math.random() - 0.5) * 3;
     const px = cx + (r + jitter) * Math.cos(angle);
     const py = cy + (r + jitter) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
-  
   ctx.stroke();
   ctx.restore();
-}
-
-function drawCentralArena(width, height, infra, latest) {
-  const x = width * 0.05;
-  const y = 80;
-  const arenaW = width * 0.9;
-  const arenaH = height - 120;
-
-  roughRect(x, y, arenaW, arenaH, "#444", 2);
-
-  // Definir posiciones clave
-  const midY = y + arenaH / 2;
-  const leftX = x + 100;
-  const centerX = x + arenaW / 2;
-  const rightX = x + arenaW - 100;
-
-  if (infra.id === "base") {
-    // Arquitectura Paramétrica: Directa
-    drawNode(leftX, midY, 45, "USER INPUT", "#dbeafe");
-    drawNode(centerX, midY, 70, "GEMMA\n(Weights)", "#dcfce7");
-    drawNode(rightX, midY, 45, "OUTPUT", "#fee2e2");
-    
-    drawOrganicArrow(leftX + 45, midY, centerX - 70, midY);
-    drawOrganicArrow(centerX + 70, midY, rightX - 45, midY);
-    
-    ctx.font = "italic 14px 'Patrick Hand'";
-    ctx.fillText("Solo memoria paramétrica (entrenamiento)", centerX - 80, midY + 90);
-
-  } else if (infra.id === "small") {
-    // Arquitectura Episódica: Chat History con Feedback Loop
-    const historyY = midY + 80;
-    drawNode(leftX, midY - 40, 40, "INPUT", "#dbeafe");
-    drawNode(centerX, midY - 40, 60, "GEMMA", "#dcfce7");
-    drawNode(centerX, historyY, 50, "EPISODIC\n(History)", "#fef3c7");
-    drawNode(rightX, midY - 40, 40, "OUTPUT", "#fee2e2");
-
-    drawOrganicArrow(leftX + 40, midY - 40, centerX - 60, midY - 40);
-    drawOrganicArrow(centerX + 60, midY - 40, rightX - 40, midY - 40);
-    // Loop de feedback
-    drawOrganicArrow(rightX, midY, centerX + 50, historyY); 
-    drawOrganicArrow(centerX - 50, historyY, leftX, midY);
-
-  } else if (infra.id === "large") {
-    // Arquitectura Procedimental: System Prompts
-    const systemY = midY - 100;
-    drawNode(centerX, systemY, 45, "SYSTEM\n(Policy)", "#e0f2fe");
-    drawNode(leftX, midY, 40, "USER", "#dbeafe");
-    drawNode(centerX, midY, 55, "CONTEXT\nWINDOW", "#fef3c7");
-    drawNode(rightX, midY, 40, "GEMMA", "#dcfce7");
-
-    drawOrganicArrow(centerX, systemY + 45, centerX, midY - 55);
-    drawOrganicArrow(leftX + 40, midY, centerX - 55, midY);
-    drawOrganicArrow(centerX + 55, midY, rightX - 40, midY);
-
-  } else if (infra.id === "rag") {
-    // Arquitectura Externa: Vector RAG
-    const dbX = leftX + 150;
-    const dbY = midY + 90;
-    drawNode(leftX, midY - 40, 40, "QUERY", "#dbeafe");
-    drawNode(dbX, dbY, 50, "EXTERNAL\n(Docs)", "#f3e8ff");
-    drawNode(centerX + 100, midY - 40, 60, "AUGMENTED\nCONTEXT", "#fef3c7");
-    drawNode(rightX, midY - 40, 40, "GEMMA", "#dcfce7");
-
-    drawOrganicArrow(leftX + 40, midY - 40, dbX - 30, dbY - 30); // Retrieval search
-    drawOrganicArrow(dbX + 50, dbY, centerX + 40, midY); // Inject
-    drawOrganicArrow(leftX + 40, midY - 40, centerX + 40, midY - 40); // Direct path
-    drawOrganicArrow(centerX + 160, midY - 40, rightX - 40, midY - 40);
-
-  } else if (infra.id === "graph") {
-    // Arquitectura Semántica: Knowledge Graph
-    const graphX = centerX;
-    const graphY = midY + 85;
-    drawNode(leftX, midY - 50, 40, "INPUT", "#dbeafe");
-    drawNode(rightX, midY - 50, 50, "GEMMA", "#dcfce7");
-    
-    // Dibujar pequeño grafo simbólico
-    roughCircle(graphX, graphY, 45, "#fff7ed", "#c2410c");
-    ctx.font = "bold 12px 'Gochi Hand'";
-    ctx.fillText("SEMANTIC\nGRAPH", graphX - 25, graphY);
-    
-    // Conexiones de grafo
-    drawOrganicArrow(leftX + 40, midY - 50, graphX - 40, graphY - 20);
-    drawOrganicArrow(graphX + 40, graphY - 20, rightX - 50, midY - 20);
-    drawOrganicArrow(leftX + 40, midY - 50, rightX - 50, midY - 50);
-  }
-
-  if (latest) {
-    const statusColor = latest.success ? "#16a34a" : "#dc2626";
-    ctx.save();
-    ctx.strokeStyle = statusColor;
-    ctx.setLineDash([5, 5]);
-    roughRect(x + 10, y + 10, arenaW - 20, arenaH - 20, statusColor, 1);
-    ctx.restore();
-    
-    ctx.font = "bold 20px 'Patrick Hand'";
-    ctx.fillStyle = statusColor;
-    ctx.fillText(latest.success ? "✓ MATCH" : "✗ NO MATCH", rightX - 40, y + 40);
-  }
 }
 
 function drawNode(x, y, r, label, color) {
   roughCircle(x, y, r, color, "#1e293b");
   ctx.save();
   ctx.fillStyle = "#1e293b";
-  ctx.font = "bold 14px 'Gochi Hand'";
+  ctx.font = "bold 13px 'Gochi Hand'";
   ctx.textAlign = "center";
-  const lines = label.split("\n");
-  lines.forEach((line, i) => {
-    ctx.fillText(line, x, y + (i * 15) - (lines.length > 1 ? 5 : -5));
-  });
+  ctx.fillText(label, x, y + 5);
   ctx.restore();
 }
 
-function drawOrganicArrow(x1, y1, x2, y2) {
-  roughLine(x1, y1, x2, y2, "#475569", 2);
+function drawBoard() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  const midY = h / 2;
+  const leftX = 100;
+  const rightX = w - 100;
+  const centerX = w / 2;
+
+  // Nodo Central - GEMMA
+  drawNode(centerX, midY, 65, "GEMMA", "#dcfce7");
   
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const headLen = 12;
+  // Nodo Input y Output siempre presentes
+  drawNode(leftX, midY, 40, "USER", "#dbeafe");
+  drawNode(rightX, midY, 40, "OUTPUT", "#fee2e2");
   
-  ctx.save();
-  ctx.strokeStyle = "#475569";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(
-    x2 - headLen * Math.cos(angle - Math.PI / 8),
-    y2 - headLen * Math.sin(angle - Math.PI / 8)
-  );
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(
-    x2 - headLen * Math.cos(angle + Math.PI / 8),
-    y2 - headLen * Math.sin(angle + Math.PI / 8)
-  );
-  ctx.stroke();
-  ctx.restore();
-}
+  // Conexión básica
+  roughLine(leftX + 40, midY, centerX - 65, midY);
+  roughLine(centerX + 65, midY, rightX - 40, midY);
 
-function drawFlowDetails(x, y, flow) {
-    ctx.save();
-    ctx.font = "14px 'Patrick Hand'";
-    ctx.fillStyle = "#475569";
-    const summary = flow.slice(-3).join(" | ");
-    ctx.fillText(`Recent: ${summary}`, x, y);
-    ctx.restore();
-}
-
-function pulseHalo(cx, cy, radius, color) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-// Remove old unused panel drawing functions if they exist in the replaced block
-
-
-function drawHex(cx, cy, radius, color) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = color;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  for (let i = 0; i < 6; i += 1) {
-    const angle = (Math.PI / 3) * i;
-    const px = cx + radius * Math.cos(angle);
-    const py = cy + radius * Math.sin(angle);
-    if (i === 0) {
-      ctx.moveTo(px, py);
-    } else {
-      ctx.lineTo(px, py);
-    }
+  // BLOQUES ADICIONALES
+  if (gameState.activeBlockIds.includes("episodic")) {
+    const ey = midY + 120;
+    drawNode(centerX, ey, 50, "HISTORY", "#fef3c7");
+    roughLine(rightX, midY + 40, centerX + 40, ey);
+    roughLine(centerX - 40, ey, leftX, midY + 40);
   }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.restore();
-}
 
-function drawAsciiPanel(x, y, width, height, title, lines, bgColor) {
-  ctx.fillStyle = bgColor;
-  ctx.strokeStyle = "#b6c5f0";
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, x, y, width, height, 10);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "#274172";
-  ctx.font = "700 14px 'Courier New', monospace";
-  ctx.fillText(`[ ${title} ]`, x + 12, y + 24);
-
-  const maxLines = Math.floor((height - 40) / 18);
-  const visible = lines.slice(0, maxLines);
-  ctx.font = "12px 'Courier New', monospace";
-
-  visible.forEach((line, index) => {
-    const widthChars = Math.max(18, Math.floor((width - 20) / 7));
-    ctx.fillText(fit(line, widthChars), x + 12, y + 48 + index * 18);
-  });
-}
-
-function roundRect(context, x, y, width, height, radius) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.lineTo(x + width - radius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + radius);
-  context.lineTo(x + width, y + height - radius);
-  context.quadraticCurveTo(
-    x + width,
-    y + height,
-    x + width - radius,
-    y + height,
-  );
-  context.lineTo(x + radius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - radius);
-  context.lineTo(x, y + radius);
-  context.quadraticCurveTo(x, y, x + radius, y);
-  context.closePath();
-}
-
-function wrapLine(text, maxChars) {
-  const words = text.split(" ");
-  const out = [];
-  let line = "";
-
-  words.forEach((word) => {
-    const next = line ? `${line} ${word}` : word;
-    if (next.length <= maxChars) {
-      line = next;
-    } else {
-      if (line) out.push(line);
-      line = word;
-    }
-  });
-
-  if (line) out.push(line);
-  return out;
-}
-
-function fit(text, width) {
-  if (text.length <= width) {
-    return text.padEnd(width, " ");
+  if (gameState.activeBlockIds.includes("procedural")) {
+    const py = midY - 120;
+    drawNode(centerX, py, 50, "POLICIES", "#e0f2fe");
+    roughLine(centerX, py + 50, centerX, midY - 65);
   }
-  return `${text.slice(0, width - 1)}~`;
+
+  if (gameState.activeBlockIds.includes("external")) {
+    const ex = centerX - 180;
+    const ey = midY - 100;
+    drawNode(ex, ey, 50, "VECTOR DB", "#f3e8ff");
+    roughLine(leftX + 20, midY - 40, ex, ey + 40);
+    roughLine(ex + 40, ey, centerX - 40, midY - 50);
+  }
+
+  if (gameState.activeBlockIds.includes("semantic")) {
+    const ex = centerX + 180;
+    const ey = midY - 100;
+    drawNode(ex, ey, 50, "K-GRAPH", "#fff7ed");
+    roughLine(centerX + 40, midY - 50, ex - 40, ey);
+    roughLine(ex, ey + 50, rightX - 20, midY - 40);
+  }
 }
 
 function syncCanvasResolution() {
   const ratio = window.devicePixelRatio || 1;
   const targetWidth = canvas.clientWidth;
   const targetHeight = 500;
-
   canvas.width = Math.round(targetWidth * ratio);
   canvas.height = Math.round(targetHeight * ratio);
   canvas.style.height = `${targetHeight}px`;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-
   drawBoard();
 }
 
-function updateResultBox() {
-  if (!gameState.latestRun) {
+function updateUI() {
+  budgetValueEl.textContent = String(gameState.budget);
+  spendValueEl.textContent = String(gameState.totalSpend);
+
+  const problem = PROBLEMS[gameState.roundIndex];
+  ticketProblemTitleEl.innerHTML = `
+    <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
+    <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
+  `;
+  customerMessageEl.textContent = problem.details + " -> " + problem.question;
+
+  if (gameState.latestRun) {
+    expectedOutputEl.textContent = gameState.latestRun.expected;
+    actualOutputEl.textContent = gameState.latestRun.actual;
+    roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
+    roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
+    scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
+    scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
+  } else {
     expectedOutputEl.textContent = "-";
     actualOutputEl.textContent = "-";
-    roundStatusEl.textContent = "Pendiente";
-    roundStatusEl.classList.remove("ok", "fail");
-    updateScoreBars(null);
-    return;
-  }
-
-  expectedOutputEl.textContent = gameState.latestRun.expected;
-  actualOutputEl.textContent = gameState.latestRun.actual;
-
-  if (gameState.latestRun.success) {
-    roundStatusEl.textContent = "MATCH EXACTO";
-    roundStatusEl.classList.add("ok");
-    roundStatusEl.classList.remove("fail");
-  } else {
-    roundStatusEl.textContent = "NO MATCH";
-    roundStatusEl.classList.add("fail");
-    roundStatusEl.classList.remove("ok");
-  }
-
-  updateScoreBars(gameState.latestRun.metrics);
-}
-
-function updateScoreBars(metrics) {
-  if (!metrics) {
-    scoreMemoryEl.style.width = "0%";
+    roundStatusEl.textContent = "Waiting...";
     scoreQualityEl.style.width = "0%";
-    scoreBudgetEl.style.width = "0%";
-    return;
+    scoreMemoryEl.style.width = "0%";
   }
-  scoreMemoryEl.style.width = `${metrics.memory}%`;
-  scoreQualityEl.style.width = `${metrics.quality}%`;
-  scoreBudgetEl.style.width = `${metrics.budget}%`;
+
+  renderToolbox();
+  updateLogView();
+  drawBoard();
 }
 
 function updateLogView() {
   turnLogEl.innerHTML = "";
-  gameState.logs
-    .slice()
-    .reverse()
-    .forEach((entry) => {
-      const li = document.createElement("li");
-      li.textContent = entry;
-      turnLogEl.appendChild(li);
-    });
-}
-
-function updateUI() {
-  modelNameEl.textContent = MODEL_NAME;
-  totalBudgetValueEl.textContent = String(START_BUDGET);
-  spendValueEl.textContent = String(gameState.totalSpend);
-  budgetValueEl.textContent = String(gameState.budget);
-  roundValueEl.textContent = `${gameState.roundIndex + 1}/${PROBLEMS.length}`;
-  scoreValueEl.textContent = String(gameState.solved);
-
-  const problem = PROBLEMS[gameState.roundIndex];
-  ticketProblemTitleEl.innerHTML = `
-    <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.2rem;">Priority: ${problem.priority}</div>
-    <div style="font-size: 1.4rem;">${problem.title}</div>
-    <div style="font-size: 0.9rem; color: #666; margin-top: 4px;">${problem.details}</div>
-  `;
-  customerMessageEl.textContent = `${problem.question}`;
-  contextWindowValueEl.textContent = `${getSelectedInfra().contextSize} slots`;
-  levelDescriptionEl.textContent = `Analiza el ticket y elige la capa de memoria adecuada (${problem.priority}).`;
-
-  renderInfraButtons();
-  updateResultBox();
-  updateLogView();
-  drawBoard();
-
-  runRoundBtn.disabled = gameState.gameOver;
-  nextProblemBtn.disabled = gameState.gameOver;
+  gameState.logs.slice().reverse().forEach(entry => {
+    const li = document.createElement("li");
+    li.textContent = entry;
+    turnLogEl.appendChild(li);
+  });
 }
 
 window.addEventListener("DOMContentLoaded", () => {
