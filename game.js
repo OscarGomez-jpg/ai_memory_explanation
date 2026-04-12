@@ -170,51 +170,64 @@ function runCurrentRound() {
     currentBuildCost += block.cost;
   });
 
-  // Coste de inferencia (basado en la complejidad del problema)
-  const inferenceCost = 20; 
-  const totalCost = currentBuildCost + inferenceCost;
+  const totalCost = currentBuildCost + 20; // 20 cr de coste fijo de inferencia
 
   if (gameState.budget < totalCost) {
-    addLog("Presupuesto insuficiente para este build.");
+    addLog("⚠️ Presupuesto insuficiente para este build.");
     return;
   }
 
   gameState.budget -= totalCost;
   gameState.totalSpend += totalCost;
 
-  // Lógica de éxito: ¿Tiene el bloque necesario para la prioridad del problema?
-  const hasRequiredMemory = gameState.activeBlockIds.some(id => {
-    const b = MEMORY_BLOCKS.find(block => block.id === id);
-    return b.problemMatch === problem.priority;
-  });
-
-  // Probabilidad base
-  let successProb = 0.4; // Base Model
+  // Lógica de éxito
+  let successProb = 0.35; // Probabilidad base (Parametric solo)
   gameState.activeBlockIds.forEach(id => {
     const b = MEMORY_BLOCKS.find(block => block.id === id);
-    if (!b.mandatory) successProb += 0.1; // Bonus por cada bloque
-    if (b.problemMatch === problem.priority) successProb += 0.4; // Gran bonus por match
+    if (!b.mandatory) successProb += 0.1; // Pequeño bonus por tener cualquier bloque extra
+    if (b.problemMatch === problem.priority) successProb += 0.5; // Gran bonus por match de prioridad
   });
 
   const roll = Math.random();
   const success = roll <= successProb;
 
+  // Determinar si es ÓPTIMO: Tiene el bloque correcto y NO tiene bloques extra innecesarios
+  const requiredBlock = MEMORY_BLOCKS.find(b => b.problemMatch === problem.priority);
+  const isOptimal = gameState.activeBlockIds.length === 2 && 
+                    gameState.activeBlockIds.includes("base") && 
+                    gameState.activeBlockIds.includes(requiredBlock.id);
+
+  if (success) {
+    gameState.solved += 1;
+    
+    // SISTEMA DE RECOMPENSAS
+    let reward = 100; // Recompensa base
+    let message = `✅ Ticket resuelto. +${reward} cr.`;
+    
+    if (isOptimal) {
+      const bonus = 200; // Bono por arquitectura óptima
+      reward += bonus;
+      message = `🌟 ¡ARQUITECTURA ÓPTIMA! Bono de eficiencia: +${reward} cr.`;
+    } else if (gameState.activeBlockIds.length > 2) {
+      reward = 50; // Recompensa reducida por over-engineering
+      message = `⚠️ Resuelto, pero con sobrecoste (Over-engineering). +${reward} cr.`;
+    }
+    
+    gameState.budget += reward;
+    addLog(message);
+  } else {
+    addLog(`❌ Fallo: El modelo alucinó o no recuperó el dato (${problem.priority}).`);
+  }
+
   gameState.latestRun = {
     expected: problem.expectedOutput,
-    actual: success ? problem.expectedOutput : (roll > 0.9 ? "Error de alucinación." : "Lo siento, no tengo esa información."),
+    actual: success ? problem.expectedOutput : (roll > 0.9 ? "Error de alucinación (Temperature High)." : "No tengo acceso a esa información de memoria."),
     success,
     metrics: {
         quality: Math.min(100, Math.round(successProb * 100)),
         memory: Math.round((gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100)
     }
   };
-
-  if (success) {
-    gameState.solved += 1;
-    addLog(`¡Éxito! Build adecuado para ${problem.priority}.`);
-  } else {
-    addLog(`Fallo: La arquitectura no recuperó el dato (${problem.priority}).`);
-  }
 
   updateUI();
 }
