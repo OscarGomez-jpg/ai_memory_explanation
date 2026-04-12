@@ -52,6 +52,7 @@ const MEMORY_BLOCKS = [
 const PROBLEMS = [
   {
     id: 1,
+    type: "architecture",
     title: "Vuelo de Marta",
     priority: "Episodic",
     details: "Requiere recordar datos de la conversación inmediata.",
@@ -62,6 +63,7 @@ const PROBLEMS = [
   },
   {
     id: 2,
+    type: "architecture",
     title: "Documentación Técnica",
     priority: "External",
     details: "Consulta de base de conocimientos masiva.",
@@ -72,6 +74,7 @@ const PROBLEMS = [
   },
   {
     id: 3,
+    type: "architecture",
     title: "Reserva de Diego",
     priority: "Semantic",
     details: "Relaciones entre entidades y preferencias.",
@@ -82,6 +85,7 @@ const PROBLEMS = [
   },
   {
     id: 4,
+    type: "architecture",
     title: "Políticas de Empresa",
     priority: "Procedural",
     details: "Instrucciones de actuación y protocolos.",
@@ -89,6 +93,42 @@ const PROBLEMS = [
     question: "Quien es responsable del hotfix?",
     targetKey: "responsable",
     expectedOutput: "El responsable del hotfix es Paula.",
+  },
+  {
+    id: 5,
+    type: "validation",
+    title: "Consulta sobre Python",
+    scenario: "Un usuario pregunta: '¿Cuál es la sintaxis para crear una lista en Python?'",
+    chosenMemory: "Episodic Memory",
+    correctAnswer: false, // NO es correcto
+    explanation: "Esta pregunta requiere conocimiento general de programación, no de conversaciones previas. Debería usar Parametric Memory (conocimiento base del modelo).",
+  },
+  {
+    id: 6,
+    type: "validation",
+    title: "Recordar preferencias del usuario",
+    scenario: "El usuario dice: 'Recuerda que prefiero respuestas cortas'. Más tarde pregunta algo y el modelo debe responder brevemente.",
+    chosenMemory: "Episodic Memory",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "Episodic Memory es ideal para recordar preferencias mencionadas en la conversación actual.",
+  },
+  {
+    id: 7,
+    type: "validation",
+    title: "Políticas de devolución",
+    scenario: "Un cliente pregunta sobre el proceso de devolución de productos. El sistema necesita seguir las políticas establecidas por la empresa.",
+    chosenMemory: "Procedural Memory",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "Procedural Memory contiene las reglas y procedimientos operativos de la empresa.",
+  },
+  {
+    id: 8,
+    type: "validation",
+    title: "Búsqueda en documentación técnica",
+    scenario: "Un desarrollador pregunta sobre cómo configurar un servicio específico que está documentado en Confluence.",
+    chosenMemory: "External Memory (RAG)",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "External Memory permite buscar en bases de conocimiento externas como Confluence.",
   },
 ];
 
@@ -117,6 +157,7 @@ const roundStatusEl = document.getElementById("round-status");
 
 const runRoundBtn = document.getElementById("run-round");
 const resetGameBtn = document.getElementById("reset-game");
+const resetGameBtnValidation = document.getElementById("reset-game-validation");
 
 const modalOverlay = document.getElementById("result-modal");
 const modalTitle = document.getElementById("modal-title");
@@ -124,9 +165,25 @@ const modalMessage = document.getElementById("modal-message");
 const modalDetails = document.getElementById("modal-details");
 const modalCloseBtn = document.getElementById("modal-close-btn");
 
+const stageEl = document.getElementById("stage");
+const validationLeftPanel = document.getElementById("validation-left-panel");
+const validationRightPanel = document.getElementById("validation-right-panel");
+const chosenMemoryElValidation = document.getElementById("chosen-memory-validation");
+const answerYesBtnValidation = document.getElementById("answer-yes-validation");
+const answerNoBtnValidation = document.getElementById("answer-no-validation");
+const ticketProblemTitleValidation = document.getElementById("ticket-problem-title-validation");
+const customerMessageValidation = document.getElementById("customer-message-validation");
+const spendValueValidation = document.getElementById("spend-value-validation");
+
+const validationCanvas = document.getElementById("validation-board");
+const validationCtx = validationCanvas.getContext("2d");
+
 runRoundBtn.addEventListener("click", runCurrentRound);
 resetGameBtn.addEventListener("click", resetGame);
+resetGameBtnValidation.addEventListener("click", resetGame);
 modalCloseBtn.addEventListener("click", closeModal);
+answerYesBtnValidation.addEventListener("click", () => handleValidationAnswer(true));
+answerNoBtnValidation.addEventListener("click", () => handleValidationAnswer(false));
 window.addEventListener("resize", syncCanvasResolution);
 
 function resetGame() {
@@ -203,6 +260,52 @@ function closeModal() {
       alert(`¡Juego completado!\n\nTotal gastado: ${gameState.totalSpend} cr\nTickets resueltos: ${gameState.solved}/${PROBLEMS.length}`);
     }
   }
+}
+
+function handleValidationAnswer(userAnsweredYes) {
+  const problem = PROBLEMS[gameState.roundIndex];
+
+  // Verificar si la respuesta es correcta
+  const isCorrect = userAnsweredYes === problem.correctAnswer;
+
+  if (isCorrect) {
+    // Acierta: no gasta tokens
+    gameState.solved += 1;
+    gameState.currentProblemSolved = true;
+    showValidationResultModal(true, problem, 0);
+  } else {
+    // Falla: gasta 100 tokens y avanza automáticamente
+    gameState.totalSpend += 100;
+    gameState.currentProblemSolved = true; // Aún así avanza
+    showValidationResultModal(false, problem, 100);
+  }
+
+  updateUI();
+}
+
+function showValidationResultModal(success, problem, cost) {
+  const modalContent = document.querySelector(".modal-content");
+
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Correcto!";
+    modalMessage.textContent = "Has evaluado correctamente la selección de memoria.";
+    modalDetails.innerHTML = `
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Incorrecto";
+    modalMessage.textContent = "La evaluación no fue correcta.";
+    modalDetails.innerHTML = `
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+  }
+
+  modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  modalOverlay.style.display = "flex";
 }
 
 function runCurrentRound() {
@@ -434,33 +537,167 @@ function syncCanvasResolution() {
   drawBoard();
 }
 
+function drawValidationBoard(problem) {
+  const w = validationCanvas.clientWidth;
+  const h = 600;
+  validationCtx.clearRect(0, 0, w, h);
+
+  const midY = h / 2;
+  const leftX = 80;
+  const rightX = w - 80;
+  const centerX = w / 2;
+
+  // Nodo Central - GEMMA
+  drawNodeOnCanvas(validationCtx, centerX, midY, 65, "GEMMA", "#dcfce7");
+
+  // Nodo Input y Output
+  drawNodeOnCanvas(validationCtx, leftX, midY, 40, "USER", "#dbeafe");
+  drawNodeOnCanvas(validationCtx, rightX, midY, 40, "OUTPUT", "#fee2e2");
+
+  // Conexión básica
+  roughLineOnCanvas(validationCtx, leftX + 40, midY, centerX - 65, midY);
+  roughLineOnCanvas(validationCtx, centerX + 65, midY, rightX - 40, midY);
+
+  // Dibujar el bloque de memoria escogido
+  const chosenMemory = problem.chosenMemory;
+
+  if (chosenMemory.includes("Episodic")) {
+    const ey = midY + 120;
+    drawNodeOnCanvas(validationCtx, centerX, ey, 50, "HISTORY", "#fef3c7");
+    roughLineOnCanvas(validationCtx, rightX, midY + 40, centerX + 40, ey);
+    roughLineOnCanvas(validationCtx, centerX - 40, ey, leftX, midY + 40);
+  } else if (chosenMemory.includes("Procedural")) {
+    const py = midY - 120;
+    drawNodeOnCanvas(validationCtx, centerX, py, 50, "POLICIES", "#e0f2fe");
+    roughLineOnCanvas(validationCtx, centerX, py + 50, centerX, midY - 65);
+  } else if (chosenMemory.includes("External") || chosenMemory.includes("RAG")) {
+    const ex = centerX - 180;
+    const ey = midY - 100;
+    drawNodeOnCanvas(validationCtx, ex, ey, 50, "VECTOR DB", "#f3e8ff");
+    roughLineOnCanvas(validationCtx, leftX + 20, midY - 40, ex, ey + 40);
+    roughLineOnCanvas(validationCtx, ex + 40, ey, centerX - 40, midY - 50);
+  } else if (chosenMemory.includes("Semantic")) {
+    const ex = centerX + 180;
+    const ey = midY - 100;
+    drawNodeOnCanvas(validationCtx, ex, ey, 50, "K-GRAPH", "#fff7ed");
+    roughLineOnCanvas(validationCtx, centerX + 40, midY - 50, ex - 40, ey);
+    roughLineOnCanvas(validationCtx, ex, ey + 50, rightX - 20, midY - 40);
+  }
+}
+
+function roughLineOnCanvas(context, x1, y1, x2, y2, color = "#333", width = 2) {
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = width;
+  context.lineCap = "round";
+  const segments = 10;
+  context.beginPath();
+  context.moveTo(x1, y1);
+  for(let i=1; i<=segments; i++) {
+    const t = i / segments;
+    const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
+    const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
+    context.lineTo(nx, ny);
+  }
+  context.stroke();
+  context.restore();
+}
+
+function drawNodeOnCanvas(context, x, y, r, label, color) {
+  context.save();
+  if (color !== "transparent") {
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(x, y, r, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.strokeStyle = "#1e293b";
+  context.lineWidth = 2.5;
+  context.beginPath();
+  const segments = 20;
+  for(let i=0; i<=segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const jitter = (Math.random() - 0.5) * 3;
+    const px = x + (r + jitter) * Math.cos(angle);
+    const py = y + (r + jitter) * Math.sin(angle);
+    if (i === 0) context.moveTo(px, py); else context.lineTo(px, py);
+  }
+  context.stroke();
+
+  context.fillStyle = "#1e293b";
+  context.font = "bold 13px 'Gochi Hand'";
+  context.textAlign = "center";
+  context.fillText(label, x, y + 5);
+  context.restore();
+}
+
 function updateUI() {
   spendValueEl.textContent = String(gameState.totalSpend);
+  spendValueValidation.textContent = String(gameState.totalSpend);
 
   const problem = PROBLEMS[gameState.roundIndex];
-  ticketProblemTitleEl.innerHTML = `
-    <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
-    <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
-  `;
-  customerMessageEl.textContent = problem.details + " -> " + problem.question;
 
-  if (gameState.latestRun) {
-    expectedOutputEl.textContent = gameState.latestRun.expected;
-    actualOutputEl.textContent = gameState.latestRun.actual;
-    roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
-    roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
-    scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
-    scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
+  // Mostrar UI diferente según el tipo de ticket
+  if (problem.type === "validation") {
+    // Cambiar layout
+    stageEl.className = "validation-mode";
+
+    // Ocultar elementos de architecture
+    const architectureElements = document.querySelectorAll(".architecture-only");
+    architectureElements.forEach(el => el.style.display = "none");
+
+    // Mostrar elementos de validation
+    validationLeftPanel.style.display = "block";
+    validationRightPanel.style.display = "block";
+
+    ticketProblemTitleValidation.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [Validation]</div>
+      <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
+    `;
+    customerMessageValidation.textContent = problem.scenario;
+    chosenMemoryElValidation.textContent = problem.chosenMemory;
+
+    // Dibujar el grafo de validación
+    drawValidationBoard(problem);
   } else {
-    expectedOutputEl.textContent = "-";
-    actualOutputEl.textContent = "-";
-    roundStatusEl.textContent = "Waiting...";
-    scoreQualityEl.style.width = "0%";
-    scoreMemoryEl.style.width = "0%";
+    // Cambiar layout
+    stageEl.className = "";
+
+    // Mostrar elementos de architecture
+    const architectureElements = document.querySelectorAll(".architecture-only");
+    architectureElements.forEach(el => el.style.display = "block");
+
+    // Ocultar elementos de validation
+    validationLeftPanel.style.display = "none";
+    validationRightPanel.style.display = "none";
+
+    ticketProblemTitleEl.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
+      <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
+    `;
+    customerMessageEl.textContent = problem.details + " -> " + problem.question;
   }
 
-  renderToolbox();
-  drawBoard();
+  // Solo actualizar stats si es tipo architecture
+  if (problem.type === "architecture") {
+    if (gameState.latestRun) {
+      expectedOutputEl.textContent = gameState.latestRun.expected;
+      actualOutputEl.textContent = gameState.latestRun.actual;
+      roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
+      roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
+      scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
+      scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
+    } else {
+      expectedOutputEl.textContent = "-";
+      actualOutputEl.textContent = "-";
+      roundStatusEl.textContent = "Waiting...";
+      scoreQualityEl.style.width = "0%";
+      scoreMemoryEl.style.width = "0%";
+    }
+
+    renderToolbox();
+    drawBoard();
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {

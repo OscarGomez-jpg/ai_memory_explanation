@@ -18,7 +18,7 @@
         <p id="level-description">Construye la arquitectura de memoria ideal para resolver el ticket.</p>
 
         <main id="stage">
-            <section id="left-panel">
+            <section id="left-panel" class="architecture-only">
                 <div id="budget-card">
                     <h2>Token Spending</h2>
                     <p>Total Spent: <strong id="spend-value">0</strong> cr</p>
@@ -31,19 +31,53 @@
                 </div>
             </section>
 
-            <section id="center-panel">
+            <section id="center-panel" class="architecture-only">
                 <div class="model-badge">Active Build: <strong id="model-name">Custom Gemma</strong></div>
                 <canvas id="game-board" width="980" height="500"></canvas>
                 <div id="active-blocks-labels" style="margin-top: 10px; font-family: var(--font-hand); color: var(--marker-blue);"></div>
             </section>
 
-            <section id="right-panel">
+            <!-- Validation Mode: Left Panel -->
+            <section id="validation-left-panel" class="validation-only" style="display: none;">
+                <div id="budget-card-validation">
+                    <h2>Token Spending</h2>
+                    <p>Total Spent: <strong id="spend-value-validation">0</strong> cr</p>
+                </div>
+
+                <div class="ticket-box">
+                    <div id="ticket-problem-title-validation">Cargando ticket...</div>
+                    <div class="bubble" id="customer-message-validation">-</div>
+
+                    <div style="background: #f8fafc; border: 2px dashed #333; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p style="margin: 0 0 5px 0; font-weight: bold;">Opción escogida:</p>
+                        <p id="chosen-memory-validation" style="margin: 0; color: var(--marker-blue); font-size: 1.3rem;">-</p>
+                    </div>
+
+                    <p style="font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">¿Es esta la opción correcta?</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button type="button" id="answer-no-validation" class="validation-btn">No</button>
+                        <button type="button" id="answer-yes-validation" class="validation-btn">Sí</button>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <button type="button" id="reset-game-validation">Reset Lab</button>
+                </div>
+            </section>
+
+            <!-- Validation Mode: Right Panel (Canvas) -->
+            <section id="validation-right-panel" class="validation-only" style="display: none;">
+                <div class="model-badge">Chosen Architecture</div>
+                <canvas id="validation-board" width="600" height="600"></canvas>
+            </section>
+
+            <section id="right-panel" class="architecture-only">
                 <div class="ticket-box">
                     <div id="ticket-problem-title">Cargando ticket...</div>
                     <div class="bubble" id="customer-message">-</div>
                 </div>
 
-                <div class="sim-box">
+                <div class="sim-box" id="build-stats-box">
                     <h2>Build Stats</h2>
                     <div class="score-row">
                         <span>Reliability</span>
@@ -53,7 +87,7 @@
                         <span>Memory</span>
                         <div class="meter"><div id="score-memory" class="fill"></div></div>
                     </div>
-                    
+
                     <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
                         <p><strong>Esperado:</strong> <span id="expected-output">-</span></p>
                         <p><strong>Generado:</strong> <span id="actual-output">-</span></p>
