@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt & Recall - Ranking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Gochi+Hand&family=Patrick+Hand&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="game-container">
+    <p class="eyebrow">Memory Lab</p>
+    <h1>Ranking</h1>
+    <p id="level-description">Vista del servidor: puntaje actual por jugador.</p>
+
+    <section id="leaderboard-card">
+      <h2>Leaderboard</h2>
+      <p class="leaderboard-hint">Ordenado por tickets resueltos y, en empate, menor gasto.</p>
+      <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
+        <div id="admin-status" class="status-pill" aria-live="polite"></div>
+        <button type="button" id="admin-refresh">Actualizar</button>
+      </div>
+      <ol id="leaderboard-list"></ol>
+    </section>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+
+</html>

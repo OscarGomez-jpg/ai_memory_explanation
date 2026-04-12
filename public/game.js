@@ -1,6 +1,8 @@
 const MODEL_NAME = "Gemma 4:2be Custom";
 const START_BUDGET = 1000;
 
+const PLAYER_NAME_STORAGE_KEY = "prg_player_name";
+
 // BLOQUES DE MEMORIA DISPONIBLES
 const MEMORY_BLOCKS = [
   {
@@ -8,7 +10,7 @@ const MEMORY_BLOCKS = [
     name: "Parametric",
     description: "Model weights. Pure training data.",
     cost: 0,
-    reliability: 0.40,
+    reliability: 0.4,
     color: "#dcfce7",
     mandatory: true,
   },
@@ -26,7 +28,7 @@ const MEMORY_BLOCKS = [
     name: "Procedural",
     description: "System prompts & operating rules.",
     cost: 150,
-    reliability: 0.20,
+    reliability: 0.2,
     color: "#e0f2fe",
     problemMatch: "Procedural",
   },
@@ -44,7 +46,7 @@ const MEMORY_BLOCKS = [
     name: "Semantic",
     description: "Knowledge Graphs & entity relationships.",
     cost: 350,
-    reliability: 0.30,
+    reliability: 0.3,
     color: "#fff7ed",
     problemMatch: "Semantic",
   },
@@ -102,6 +104,7 @@ const gameState = {
   latestRun: null,
   gameOver: false,
   logs: [],
+  lastSubmittedAttemptId: null,
 };
 
 const canvas = document.getElementById("game-board");
@@ -123,10 +126,60 @@ const runRoundBtn = document.getElementById("run-round");
 const nextProblemBtn = document.getElementById("next-problem");
 const resetGameBtn = document.getElementById("reset-game");
 
+const welcomeOverlayEl = document.getElementById("welcome-overlay");
+const registerNameInput = document.getElementById("register-name");
+const startGameBtn = document.getElementById("start-game");
+const welcomeStatusEl = document.getElementById("welcome-status");
+
 runRoundBtn.addEventListener("click", runCurrentRound);
-nextProblemBtn.addEventListener("click", goToNextProblem);
+nextProblemBtn.addEventListener("click", () => void goToNextProblem());
 resetGameBtn.addEventListener("click", resetGame);
 window.addEventListener("resize", syncCanvasResolution);
+
+startGameBtn.addEventListener("click", startGame);
+registerNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") startGame();
+});
+
+function sanitizeUsername(value) {
+  const trimmed = String(value || "").trim();
+  // Keep it aligned with backend validation; remove unsupported chars.
+  return trimmed.replace(/[^\p{L}0-9 _.-]/gu, "").slice(0, 24);
+}
+
+function setWelcomeStatus(text, kind) {
+  welcomeStatusEl.textContent = text;
+  welcomeStatusEl.className = `status-pill${kind ? ` ${kind}` : ""}`;
+}
+
+function getPlayerName() {
+  const stored = sanitizeUsername(
+    localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
+  );
+  return stored;
+}
+
+function initRegisterName() {
+  const stored = sanitizeUsername(
+    localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
+  );
+  if (stored) registerNameInput.value = stored;
+}
+
+function startGame() {
+  const cleaned = sanitizeUsername(registerNameInput.value);
+  if (!cleaned || cleaned.length < 2) {
+    setWelcomeStatus("Escribe un nombre válido (min 2).", "warn");
+    return;
+  }
+
+  localStorage.setItem(PLAYER_NAME_STORAGE_KEY, cleaned);
+  setWelcomeStatus("", "");
+  welcomeOverlayEl.classList.add("hidden");
+
+  resetGame();
+  syncCanvasResolution();
+}
 
 function resetGame() {
   gameState.budget = START_BUDGET;
@@ -137,6 +190,7 @@ function resetGame() {
   gameState.latestRun = null;
   gameState.gameOver = false;
   gameState.logs = [];
+  gameState.lastSubmittedAttemptId = null;
   addLog("Lab de Memoria reiniciado.");
   updateUI();
 }
@@ -146,7 +200,15 @@ function addLog(text) {
   if (gameState.logs.length > 20) gameState.logs.shift();
 }
 
-function goToNextProblem() {
+async function goToNextProblem() {
+  // Al avanzar, enviamos el puntaje actual al servidor.
+  nextProblemBtn.disabled = true;
+  try {
+    await submitAttempt({ silent: true });
+  } finally {
+    nextProblemBtn.disabled = false;
+  }
+
   if (gameState.roundIndex < PROBLEMS.length - 1) {
     gameState.roundIndex += 1;
     gameState.latestRun = null;
@@ -162,11 +224,11 @@ function runCurrentRound() {
   if (gameState.gameOver) return;
 
   const problem = PROBLEMS[gameState.roundIndex];
-  
+
   // Calcular coste del build actual
   let currentBuildCost = 0;
-  gameState.activeBlockIds.forEach(id => {
-    const block = MEMORY_BLOCKS.find(b => b.id === id);
+  gameState.activeBlockIds.forEach((id) => {
+    const block = MEMORY_BLOCKS.find((b) => b.id === id);
     currentBuildCost += block.cost;
   });
 
@@ -174,6 +236,7 @@ function runCurrentRound() {
 
   if (gameState.budget < totalCost) {
     addLog("⚠️ Presupuesto insuficiente para este build.");
+    updateUI();
     return;
   }
 
@@ -182,8 +245,8 @@ function runCurrentRound() {
 
   // Lógica de éxito
   let successProb = 0.35; // Probabilidad base (Parametric solo)
-  gameState.activeBlockIds.forEach(id => {
-    const b = MEMORY_BLOCKS.find(block => block.id === id);
+  gameState.activeBlockIds.forEach((id) => {
+    const b = MEMORY_BLOCKS.find((block) => block.id === id);
     if (!b.mandatory) successProb += 0.1; // Pequeño bonus por tener cualquier bloque extra
     if (b.problemMatch === problem.priority) successProb += 0.5; // Gran bonus por match de prioridad
   });
@@ -192,18 +255,21 @@ function runCurrentRound() {
   const success = roll <= successProb;
 
   // Determinar si es ÓPTIMO: Tiene el bloque correcto y NO tiene bloques extra innecesarios
-  const requiredBlock = MEMORY_BLOCKS.find(b => b.problemMatch === problem.priority);
-  const isOptimal = gameState.activeBlockIds.length === 2 && 
-                    gameState.activeBlockIds.includes("base") && 
-                    gameState.activeBlockIds.includes(requiredBlock.id);
+  const requiredBlock = MEMORY_BLOCKS.find(
+    (b) => b.problemMatch === problem.priority,
+  );
+  const isOptimal =
+    gameState.activeBlockIds.length === 2 &&
+    gameState.activeBlockIds.includes("base") &&
+    gameState.activeBlockIds.includes(requiredBlock.id);
 
   if (success) {
     gameState.solved += 1;
-    
+
     // SISTEMA DE RECOMPENSAS
     let reward = 100; // Recompensa base
     let message = `✅ Ticket resuelto. +${reward} cr.`;
-    
+
     if (isOptimal) {
       const bonus = 200; // Bono por arquitectura óptima
       reward += bonus;
@@ -212,21 +278,29 @@ function runCurrentRound() {
       reward = 50; // Recompensa reducida por over-engineering
       message = `⚠️ Resuelto, pero con sobrecoste (Over-engineering). +${reward} cr.`;
     }
-    
+
     gameState.budget += reward;
     addLog(message);
   } else {
-    addLog(`❌ Fallo: El modelo alucinó o no recuperó el dato (${problem.priority}).`);
+    addLog(
+      `❌ Fallo: El modelo alucinó o no recuperó el dato (${problem.priority}).`,
+    );
   }
 
   gameState.latestRun = {
     expected: problem.expectedOutput,
-    actual: success ? problem.expectedOutput : (roll > 0.9 ? "Error de alucinación (Temperature High)." : "No tengo acceso a esa información de memoria."),
+    actual: success
+      ? problem.expectedOutput
+      : roll > 0.9
+        ? "Error de alucinación (Temperature High)."
+        : "No tengo acceso a esa información de memoria.",
     success,
     metrics: {
-        quality: Math.min(100, Math.round(successProb * 100)),
-        memory: Math.round((gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100)
-    }
+      quality: Math.min(100, Math.round(successProb * 100)),
+      memory: Math.round(
+        (gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100,
+      ),
+    },
   };
 
   updateUI();
@@ -241,7 +315,7 @@ function renderToolbox() {
     btn.type = "button";
     btn.className = `infra-btn ${isActive ? "selected" : ""}`;
     btn.style.borderLeft = `8px solid ${block.color}`;
-    
+
     btn.innerHTML = `
       <div style="font-weight: bold;">${block.name}</div>
       <div style="font-size: 0.8rem; opacity: 0.7;">${block.description}</div>
@@ -252,7 +326,9 @@ function renderToolbox() {
 
     btn.addEventListener("click", () => {
       if (isActive) {
-        gameState.activeBlockIds = gameState.activeBlockIds.filter(id => id !== block.id);
+        gameState.activeBlockIds = gameState.activeBlockIds.filter(
+          (id) => id !== block.id,
+        );
       } else {
         gameState.activeBlockIds.push(block.id);
       }
@@ -273,7 +349,7 @@ function roughLine(x1, y1, x2, y2, color = "#333", width = 2) {
   const segments = 10;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
-  for(let i=1; i<=segments; i++) {
+  for (let i = 1; i <= segments; i++) {
     const t = i / segments;
     const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
     const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
@@ -295,12 +371,13 @@ function roughCircle(cx, cy, r, fill = "transparent", stroke = "#333") {
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   const segments = 20;
-  for(let i=0; i<=segments; i++) {
+  for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
     const jitter = (Math.random() - 0.5) * 3;
     const px = cx + (r + jitter) * Math.cos(angle);
     const py = cy + (r + jitter) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
   ctx.stroke();
   ctx.restore();
@@ -328,11 +405,11 @@ function drawBoard() {
 
   // Nodo Central - GEMMA
   drawNode(centerX, midY, 65, "GEMMA", "#dcfce7");
-  
+
   // Nodo Input y Output siempre presentes
   drawNode(leftX, midY, 40, "USER", "#dbeafe");
   drawNode(rightX, midY, 40, "OUTPUT", "#fee2e2");
-  
+
   // Conexión básica
   roughLine(leftX + 40, midY, centerX - 65, midY);
   roughLine(centerX + 65, midY, rightX - 40, midY);
@@ -412,14 +489,60 @@ function updateUI() {
 
 function updateLogView() {
   turnLogEl.innerHTML = "";
-  gameState.logs.slice().reverse().forEach(entry => {
-    const li = document.createElement("li");
-    li.textContent = entry;
-    turnLogEl.appendChild(li);
-  });
+  gameState.logs
+    .slice()
+    .reverse()
+    .forEach((entry) => {
+      const li = document.createElement("li");
+      li.textContent = entry;
+      turnLogEl.appendChild(li);
+    });
+}
+
+function buildAttemptPayload() {
+  return {
+    username: getPlayerName(),
+    solved: gameState.solved,
+    roundsTotal: PROBLEMS.length,
+    totalSpend: gameState.totalSpend,
+    budgetRemaining: gameState.budget,
+    clientTs: new Date().toISOString(),
+  };
+}
+
+async function submitAttempt(options = {}) {
+  const username = getPlayerName();
+  if (!username) return;
+
+  try {
+    const resp = await fetch("/api/attempts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildAttemptPayload()),
+    });
+
+    const data = await resp.json().catch(() => null);
+
+    if (!resp.ok) {
+      if (!options.silent) {
+        addLog("⚠️ No se pudo enviar el resultado al servidor.");
+        updateUI();
+      }
+      return;
+    }
+
+    gameState.lastSubmittedAttemptId = data?.id || null;
+  } catch (_err) {
+    if (!options.silent) {
+      addLog("⚠️ Servidor no disponible para enviar el resultado.");
+      updateUI();
+    }
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  resetGame();
-  syncCanvasResolution();
+  initRegisterName();
+  setWelcomeStatus("", "");
+  // No iniciar el juego hasta que el usuario se registre.
+  welcomeOverlayEl.classList.remove("hidden");
 });
