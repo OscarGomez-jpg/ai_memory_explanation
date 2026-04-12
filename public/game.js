@@ -136,8 +136,8 @@ const PROBLEMS = [
     title: "Episodic Memory",
     memoryType: "Episodic",
     options: [
-      { text: "¿Cuál es la capital de Francia?", isCorrect: false },
       { text: "¿Qué te dije sobre mis preferencias de formato?", isCorrect: true },
+      { text: "¿Cuál es la capital de Francia?", isCorrect: false },
       { text: "¿Cómo funciona el algoritmo de ordenamiento quicksort?", isCorrect: false },
       { text: "¿Cuál es la política de reembolsos de la empresa?", isCorrect: false },
     ],
@@ -151,8 +151,8 @@ const PROBLEMS = [
     options: [
       { text: "¿Cuál fue el último mensaje que te envié?", isCorrect: false },
       { text: "¿Qué significa machine learning?", isCorrect: false },
-      { text: "¿Cuáles son los pasos para escalar un incidente crítico?", isCorrect: true },
       { text: "¿Qué documentación existe sobre microservicios en el wiki?", isCorrect: false },
+      { text: "¿Cuáles son los pasos para escalar un incidente crítico?", isCorrect: true },
     ],
     explanation: "Procedural Memory contiene reglas, protocolos y procedimientos operativos establecidos.",
   },
@@ -163,8 +163,8 @@ const PROBLEMS = [
     memoryType: "External",
     options: [
       { text: "¿Cuál es el protocolo de emergencia?", isCorrect: false },
-      { text: "Resume lo que hablamos hace 5 minutos.", isCorrect: false },
       { text: "Busca información sobre la API de pagos en la documentación interna.", isCorrect: true },
+      { text: "Resume lo que hablamos hace 5 minutos.", isCorrect: false },
       { text: "¿Cómo se llama el CEO de la empresa?", isCorrect: false },
     ],
     explanation: "External Memory (RAG) permite buscar en bases de conocimiento externas y documentación almacenada.",
@@ -176,8 +176,8 @@ const PROBLEMS = [
     memoryType: "Semantic",
     options: [
       { text: "¿Qué dijo el cliente sobre sus preferencias?", isCorrect: false },
-      { text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?", isCorrect: true },
       { text: "Busca el último changelog en Confluence.", isCorrect: false },
+      { text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?", isCorrect: true },
       { text: "¿Cuál es el proceso para aprobar un PR?", isCorrect: false },
     ],
     explanation: "Semantic Memory usa grafos de conocimiento para entender relaciones complejas entre entidades.",
