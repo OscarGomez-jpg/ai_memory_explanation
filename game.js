@@ -325,10 +325,76 @@ function closeModal() {
     if (gameState.roundIndex < PROBLEMS.length - 1) {
       goToNextProblem();
     } else {
-      // Juego terminado
-      alert(`¡Juego completado!\n\nTotal gastado: ${gameState.totalSpend} cr\nTickets resueltos: ${gameState.solved}/${PROBLEMS.length}`);
+      // Juego terminado - mostrar pantalla final
+      showFinalScreen();
     }
   }
+}
+
+function showFinalScreen() {
+  // Ocultar todo el stage
+  stageEl.style.display = "none";
+
+  // Crear y mostrar la pantalla final
+  const finalScreen = document.createElement("div");
+  finalScreen.id = "final-screen";
+  finalScreen.innerHTML = `
+    <div style="text-align: center; padding: 40px;">
+      <h1 style="font-family: var(--font-accent); font-size: 4rem; color: var(--marker-green); margin-bottom: 20px;">
+        ¡Gracias por participar!
+      </h1>
+
+      <p style="font-family: var(--font-hand); font-size: 1.5rem; color: var(--marker-blue); margin-bottom: 40px;">
+        Has completado el Memory Architect Challenge
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; max-width: 700px; margin: 0 auto 40px;">
+        <div class="final-stat-card" style="background: var(--sticky-yellow); padding: 30px; border: 3px solid #333; border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); transform: rotate(-2deg);">
+          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">Total de Tokens</div>
+          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-red); font-weight: bold;">${gameState.totalSpend}</div>
+          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">créditos</div>
+        </div>
+
+        <div class="final-stat-card" style="background: var(--sticky-blue); padding: 30px; border: 3px solid #333; border-radius: 5px 15px 5px 15px / 15px 5px 15px 5px; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); transform: rotate(2deg);">
+          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">Tickets Resueltos</div>
+          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-green); font-weight: bold;">${gameState.solved}/${PROBLEMS.length}</div>
+          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">completados</div>
+        </div>
+      </div>
+
+      <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto 40px; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
+        <p style="font-family: var(--font-main); font-size: 1.2rem; line-height: 1.6; margin: 0;">
+          Has explorado diferentes tipos de memoria en sistemas de IA:
+          <strong style="color: var(--marker-blue);">Episodic, Procedural, External y Semantic</strong>.
+          Cada una tiene su propósito específico en la arquitectura de modelos inteligentes.
+        </p>
+      </div>
+
+      <button type="button" id="restart-from-final" style="
+        font-family: var(--font-accent);
+        font-size: 1.5rem;
+        padding: 15px 40px;
+        border: 3px solid #333;
+        background: var(--marker-blue);
+        color: white;
+        cursor: pointer;
+        box-shadow: 6px 6px 0 #333;
+        border-radius: 10px;
+        transition: all 0.1s;
+      ">
+        Jugar de nuevo
+      </button>
+    </div>
+  `;
+
+  document.getElementById("game-container").appendChild(finalScreen);
+
+  // Event listener para reiniciar
+  document.getElementById("restart-from-final").addEventListener("click", () => {
+    finalScreen.remove();
+    stageEl.style.display = "grid";
+    resetGame();
+  });
 }
 
 function selectScenarioOption(selectedIndex) {
@@ -900,7 +966,7 @@ function updateUI() {
     architectureElements.forEach(el => el.style.display = "block");
 
     ticketProblemTitleEl.innerHTML = `
-      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id}</div>
       <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
     `;
     customerMessageEl.textContent = problem.details + " -> " + problem.question;

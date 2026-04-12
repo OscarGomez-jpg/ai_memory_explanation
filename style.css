@@ -451,6 +451,40 @@ button:active {
   }
 }
 
+/* Final Screen Styles */
+#final-screen {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.final-stat-card {
+  transition: transform 0.3s;
+}
+
+.final-stat-card:hover {
+  transform: rotate(0deg) scale(1.05) !important;
+}
+
+#restart-from-final:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 #333;
+}
+
+#restart-from-final:active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 #333;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
