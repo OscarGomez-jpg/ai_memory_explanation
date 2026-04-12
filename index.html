@@ -20,9 +20,8 @@
         <main id="stage">
             <section id="left-panel">
                 <div id="budget-card">
-                    <h2>Budget</h2>
-                    <p>Remaining: <strong id="budget-value">0</strong> cr</p>
-                    <p>Total Spend: <strong id="spend-value">0</strong> cr</p>
+                    <h2>Token Spending</h2>
+                    <p>Total Spent: <strong id="spend-value">0</strong> cr</p>
                 </div>
 
                 <h2>Memory Toolbox</h2>
@@ -64,16 +63,28 @@
 
                 <div class="quick-actions">
                     <button type="button" id="run-round">Confirm & Run</button>
-                    <button type="button" id="next-problem">Next Ticket</button>
                     <button type="button" id="reset-game">Reset Lab</button>
                 </div>
             </section>
         </main>
-        
-        <div id="turn-log-container" style="margin-top: 20px;">
-            <ol id="turn-log"></ol>
+    </div>
+
+    <!-- Modal -->
+    <div id="result-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Result</h2>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message"></p>
+                <div id="modal-details"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="modal-close-btn">Continue</button>
+            </div>
         </div>
     </div>
+
     <script src="game.js"></script>
 </body>
 

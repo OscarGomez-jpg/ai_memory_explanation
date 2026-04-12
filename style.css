@@ -248,16 +248,6 @@ button:active {
   color: white;
 }
 
-#turn-log {
-  font-family: 'Courier New', monospace;
-  font-size: 0.9rem;
-  background: #f1f5f9;
-  padding: 10px;
-  border: 1px dashed #94a3b8;
-  height: 120px;
-  overflow-y: auto;
-}
-
 #recommendation-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -324,4 +314,97 @@ button:active {
   #recommendation-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+}
+
+.modal-content {
+  background: var(--paper);
+  border: 3px solid #333;
+  border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px;
+  padding: 30px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.2);
+  transform: rotate(-1deg);
+  animation: modalPopIn 0.3s ease-out;
+}
+
+@keyframes modalPopIn {
+  from {
+    transform: rotate(-1deg) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(-1deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header h2 {
+  font-family: var(--font-accent);
+  font-size: 2.5rem;
+  margin: 0 0 20px 0;
+  text-align: center;
+}
+
+.modal-body {
+  font-family: var(--font-main);
+  font-size: 1.2rem;
+  margin-bottom: 25px;
+}
+
+.modal-body p {
+  margin: 10px 0;
+}
+
+#modal-details {
+  background: #f8fafc;
+  border: 2px dashed #333;
+  padding: 15px;
+  margin-top: 15px;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
+.modal-footer {
+  text-align: center;
+}
+
+#modal-close-btn {
+  font-family: var(--font-accent);
+  font-size: 1.3rem;
+  padding: 12px 30px;
+  border: 2px solid #333;
+  background: var(--marker-blue);
+  color: white;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 #333;
+  transition: all 0.1s;
+}
+
+#modal-close-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #333;
+}
+
+.modal-success #modal-title {
+  color: var(--marker-green);
+}
+
+.modal-failure #modal-title {
+  color: var(--marker-red);
 }

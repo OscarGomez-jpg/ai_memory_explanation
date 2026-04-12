@@ -1,5 +1,4 @@
 const MODEL_NAME = "Gemma 4:2be Custom";
-const START_BUDGET = 1000;
 
 // BLOQUES DE MEMORIA DISPONIBLES
 const MEMORY_BLOCKS = [
@@ -94,75 +93,127 @@ const PROBLEMS = [
 ];
 
 const gameState = {
-  budget: START_BUDGET,
   totalSpend: 0,
   solved: 0,
   roundIndex: 0,
   activeBlockIds: ["base"],
   latestRun: null,
-  gameOver: false,
-  logs: [],
+  currentProblemSolved: false,
+  disabledBlockIds: [], // Bloques deshabilitados para el problema actual
 };
 
 const canvas = document.getElementById("game-board");
 const ctx = canvas.getContext("2d");
 
-const budgetValueEl = document.getElementById("budget-value");
 const spendValueEl = document.getElementById("spend-value");
 const ticketProblemTitleEl = document.getElementById("ticket-problem-title");
 const customerMessageEl = document.getElementById("customer-message");
 const scoreQualityEl = document.getElementById("score-quality");
 const scoreMemoryEl = document.getElementById("score-memory");
 const infraCardsEl = document.getElementById("infra-cards");
-const turnLogEl = document.getElementById("turn-log");
 const expectedOutputEl = document.getElementById("expected-output");
 const actualOutputEl = document.getElementById("actual-output");
 const roundStatusEl = document.getElementById("round-status");
 
 const runRoundBtn = document.getElementById("run-round");
-const nextProblemBtn = document.getElementById("next-problem");
 const resetGameBtn = document.getElementById("reset-game");
 
+const modalOverlay = document.getElementById("result-modal");
+const modalTitle = document.getElementById("modal-title");
+const modalMessage = document.getElementById("modal-message");
+const modalDetails = document.getElementById("modal-details");
+const modalCloseBtn = document.getElementById("modal-close-btn");
+
 runRoundBtn.addEventListener("click", runCurrentRound);
-nextProblemBtn.addEventListener("click", goToNextProblem);
 resetGameBtn.addEventListener("click", resetGame);
+modalCloseBtn.addEventListener("click", closeModal);
 window.addEventListener("resize", syncCanvasResolution);
 
 function resetGame() {
-  gameState.budget = START_BUDGET;
   gameState.totalSpend = 0;
   gameState.solved = 0;
   gameState.roundIndex = 0;
   gameState.activeBlockIds = ["base"];
   gameState.latestRun = null;
-  gameState.gameOver = false;
-  gameState.logs = [];
-  addLog("Lab de Memoria reiniciado.");
+  gameState.currentProblemSolved = false;
+  gameState.disabledBlockIds = [];
   updateUI();
-}
-
-function addLog(text) {
-  gameState.logs.push(text);
-  if (gameState.logs.length > 20) gameState.logs.shift();
 }
 
 function goToNextProblem() {
   if (gameState.roundIndex < PROBLEMS.length - 1) {
     gameState.roundIndex += 1;
     gameState.latestRun = null;
-    gameState.activeBlockIds = ["base"]; // Limpiar para el siguiente
-    addLog(`Nuevo ticket: #${gameState.roundIndex + 1}.`);
-  } else {
-    addLog("Has terminado todos los tickets.");
+    gameState.activeBlockIds = ["base"];
+    gameState.currentProblemSolved = false;
+    gameState.disabledBlockIds = []; // Reset bloques deshabilitados para el nuevo problema
   }
   updateUI();
 }
 
-function runCurrentRound() {
-  if (gameState.gameOver) return;
+function showModal(success, problem, actualOutput, cost) {
+  const modalContent = document.querySelector(".modal-content");
 
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Éxito!";
+    modalMessage.textContent = `Has construido la arquitectura correcta para resolver el ticket de ${problem.priority}.`;
+    modalDetails.innerHTML = `
+      <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
+      <p><strong>Generado:</strong> ${actualOutput}</p>
+      <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Fallo";
+    modalMessage.textContent = `La arquitectura no pudo recuperar la información correcta. Intenta agregar o quitar bloques de memoria.`;
+    modalDetails.innerHTML = `
+      <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
+      <p><strong>Generado:</strong> ${actualOutput}</p>
+      <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = "Reintentar";
+  }
+
+  modalOverlay.style.display = "flex";
+}
+
+function showWarningModal() {
+  const modalContent = document.querySelector(".modal-content");
+  modalContent.className = "modal-content modal-failure";
+  modalTitle.textContent = "Atención";
+  modalMessage.textContent = "Debes seleccionar al menos un bloque de memoria adicional del Memory Toolbox antes de ejecutar.";
+  modalDetails.innerHTML = `
+    <p>El modelo base (Parametric) solo no es suficiente para resolver los tickets.</p>
+    <p>Haz clic en los bloques de memoria disponibles en el panel izquierdo.</p>
+  `;
+  modalCloseBtn.textContent = "Entendido";
+  modalOverlay.style.display = "flex";
+}
+
+function closeModal() {
+  modalOverlay.style.display = "none";
+
+  if (gameState.currentProblemSolved) {
+    if (gameState.roundIndex < PROBLEMS.length - 1) {
+      goToNextProblem();
+    } else {
+      // Juego terminado
+      alert(`¡Juego completado!\n\nTotal gastado: ${gameState.totalSpend} cr\nTickets resueltos: ${gameState.solved}/${PROBLEMS.length}`);
+    }
+  }
+}
+
+function runCurrentRound() {
   const problem = PROBLEMS[gameState.roundIndex];
-  
+
+  // Verificar que haya seleccionado al menos un bloque adicional (no solo base)
+  if (gameState.activeBlockIds.length === 1 && gameState.activeBlockIds[0] === "base") {
+    showWarningModal();
+    return;
+  }
+
   // Calcular coste del build actual
   let currentBuildCost = 0;
   gameState.activeBlockIds.forEach(id => {
@@ -171,37 +222,34 @@ function runCurrentRound() {
   });
 
   // Coste de inferencia (basado en la complejidad del problema)
-  const inferenceCost = 20; 
+  const inferenceCost = 20;
   const totalCost = currentBuildCost + inferenceCost;
 
-  if (gameState.budget < totalCost) {
-    addLog("Presupuesto insuficiente para este build.");
-    return;
-  }
-
-  gameState.budget -= totalCost;
+  // Siempre gastar tokens
   gameState.totalSpend += totalCost;
 
-  // Lógica de éxito: ¿Tiene el bloque necesario para la prioridad del problema?
+  // Lógica de éxito: DEBE tener el bloque necesario para la prioridad del problema
   const hasRequiredMemory = gameState.activeBlockIds.some(id => {
     const b = MEMORY_BLOCKS.find(block => block.id === id);
     return b.problemMatch === problem.priority;
   });
 
-  // Probabilidad base
+  // Éxito determinístico: solo si tiene el bloque correcto
+  const success = hasRequiredMemory;
+
+  // Calcular métricas para visualización
   let successProb = 0.4; // Base Model
   gameState.activeBlockIds.forEach(id => {
     const b = MEMORY_BLOCKS.find(block => block.id === id);
-    if (!b.mandatory) successProb += 0.1; // Bonus por cada bloque
-    if (b.problemMatch === problem.priority) successProb += 0.4; // Gran bonus por match
+    if (!b.mandatory) successProb += 0.1;
+    if (b.problemMatch === problem.priority) successProb += 0.4;
   });
 
-  const roll = Math.random();
-  const success = roll <= successProb;
+  const actualOutput = success ? problem.expectedOutput : "Lo siento, no tengo esa información.";
 
   gameState.latestRun = {
     expected: problem.expectedOutput,
-    actual: success ? problem.expectedOutput : (roll > 0.9 ? "Error de alucinación." : "Lo siento, no tengo esa información."),
+    actual: actualOutput,
     success,
     metrics: {
         quality: Math.min(100, Math.round(successProb * 100)),
@@ -211,12 +259,22 @@ function runCurrentRound() {
 
   if (success) {
     gameState.solved += 1;
-    addLog(`¡Éxito! Build adecuado para ${problem.priority}.`);
+    gameState.currentProblemSolved = true;
   } else {
-    addLog(`Fallo: La arquitectura no recuperó el dato (${problem.priority}).`);
+    gameState.currentProblemSolved = false;
+
+    // Deshabilitar el bloque incorrecto que se intentó usar
+    const incorrectBlock = gameState.activeBlockIds.find(id => id !== "base");
+    if (incorrectBlock && !gameState.disabledBlockIds.includes(incorrectBlock)) {
+      gameState.disabledBlockIds.push(incorrectBlock);
+    }
+
+    // Deseleccionar el bloque incorrecto
+    gameState.activeBlockIds = ["base"];
   }
 
   updateUI();
+  showModal(success, problem, actualOutput, totalCost);
 }
 
 function renderToolbox() {
@@ -224,24 +282,34 @@ function renderToolbox() {
 
   MEMORY_BLOCKS.forEach((block) => {
     const isActive = gameState.activeBlockIds.includes(block.id);
+    const isDisabled = gameState.disabledBlockIds.includes(block.id);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = `infra-btn ${isActive ? "selected" : ""}`;
     btn.style.borderLeft = `8px solid ${block.color}`;
-    
+
+    // Si está deshabilitado, aplicar estilo visual
+    if (isDisabled) {
+      btn.style.opacity = "0.4";
+      btn.style.cursor = "not-allowed";
+    }
+
     btn.innerHTML = `
       <div style="font-weight: bold;">${block.name}</div>
       <div style="font-size: 0.8rem; opacity: 0.7;">${block.description}</div>
       <div style="margin-top: 5px; font-weight: bold;">Cost: ${block.cost} cr</div>
+      ${isDisabled ? '<div style="color: var(--marker-red); margin-top: 5px; font-size: 0.8rem;">✗ Incorrecto</div>' : ''}
     `;
 
-    btn.disabled = block.mandatory;
+    btn.disabled = block.mandatory || isDisabled;
 
     btn.addEventListener("click", () => {
       if (isActive) {
+        // Deseleccionar el bloque actual
         gameState.activeBlockIds = gameState.activeBlockIds.filter(id => id !== block.id);
       } else {
-        gameState.activeBlockIds.push(block.id);
+        // Deseleccionar todos los bloques excepto 'base', luego agregar el nuevo
+        gameState.activeBlockIds = ["base", block.id];
       }
       updateUI();
     });
@@ -367,7 +435,6 @@ function syncCanvasResolution() {
 }
 
 function updateUI() {
-  budgetValueEl.textContent = String(gameState.budget);
   spendValueEl.textContent = String(gameState.totalSpend);
 
   const problem = PROBLEMS[gameState.roundIndex];
@@ -393,17 +460,7 @@ function updateUI() {
   }
 
   renderToolbox();
-  updateLogView();
   drawBoard();
-}
-
-function updateLogView() {
-  turnLogEl.innerHTML = "";
-  gameState.logs.slice().reverse().forEach(entry => {
-    const li = document.createElement("li");
-    li.textContent = entry;
-    turnLogEl.appendChild(li);
-  });
 }
 
 window.addEventListener("DOMContentLoaded", () => {
