@@ -2,6 +2,13 @@ const MODEL_NAME = "Gemma 4:2be Custom";
 const START_BUDGET = 1000;
 
 const PLAYER_NAME_STORAGE_KEY = "prg_player_name";
+const PLAYER_MODE_STORAGE_KEY = "prg_mode_id";
+
+const GAME_MODES = [
+  { id: "memory-architect", name: "Memory Architect" },
+  { id: "mode-2", name: "Modo 2" },
+  { id: "mode-3", name: "Modo 3" },
+];
 
 // BLOQUES DE MEMORIA DISPONIBLES
 const MEMORY_BLOCKS = [
@@ -105,6 +112,7 @@ const gameState = {
   gameOver: false,
   logs: [],
   lastSubmittedAttemptId: null,
+  modeId: "memory-architect",
 };
 
 const canvas = document.getElementById("game-board");
@@ -128,8 +136,12 @@ const resetGameBtn = document.getElementById("reset-game");
 
 const welcomeOverlayEl = document.getElementById("welcome-overlay");
 const registerNameInput = document.getElementById("register-name");
+const registerModeSelect = document.getElementById("register-mode");
 const startGameBtn = document.getElementById("start-game");
 const welcomeStatusEl = document.getElementById("welcome-status");
+
+const modeNameEl = document.getElementById("mode-name");
+const exitModeBtn = document.getElementById("exit-mode");
 
 runRoundBtn.addEventListener("click", runCurrentRound);
 nextProblemBtn.addEventListener("click", () => void goToNextProblem());
@@ -140,6 +152,8 @@ startGameBtn.addEventListener("click", startGame);
 registerNameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") startGame();
 });
+
+exitModeBtn.addEventListener("click", () => void exitMode());
 
 function sanitizeUsername(value) {
   const trimmed = String(value || "").trim();
@@ -159,11 +173,28 @@ function getPlayerName() {
   return stored;
 }
 
+function getModeId() {
+  const stored = String(
+    localStorage.getItem(PLAYER_MODE_STORAGE_KEY) || "",
+  ).trim();
+  if (GAME_MODES.some((m) => m.id === stored)) return stored;
+  return "memory-architect";
+}
+
+function setModeBadge() {
+  const modeId = getModeId();
+  const mode = GAME_MODES.find((m) => m.id === modeId);
+  modeNameEl.textContent = mode ? mode.name : modeId;
+}
+
 function initRegisterName() {
   const stored = sanitizeUsername(
     localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
   );
   if (stored) registerNameInput.value = stored;
+
+  const modeId = getModeId();
+  registerModeSelect.value = modeId;
 }
 
 function startGame() {
@@ -173,7 +204,17 @@ function startGame() {
     return;
   }
 
+  const selectedMode = String(registerModeSelect.value || "").trim();
+  if (!GAME_MODES.some((m) => m.id === selectedMode)) {
+    setWelcomeStatus("Selecciona un modo válido.", "warn");
+    return;
+  }
+
   localStorage.setItem(PLAYER_NAME_STORAGE_KEY, cleaned);
+  localStorage.setItem(PLAYER_MODE_STORAGE_KEY, selectedMode);
+  gameState.modeId = selectedMode;
+  setModeBadge();
+
   setWelcomeStatus("", "");
   welcomeOverlayEl.classList.add("hidden");
 
@@ -181,7 +222,17 @@ function startGame() {
   syncCanvasResolution();
 }
 
+async function exitMode() {
+  // Guardar un snapshot actual antes de salir.
+  await submitAttempt({ silent: true });
+
+  welcomeOverlayEl.classList.remove("hidden");
+  initRegisterName();
+  setWelcomeStatus("Puedes cambiar el modo y volver a entrar.", "ok");
+}
+
 function resetGame() {
+  gameState.modeId = getModeId();
   gameState.budget = START_BUDGET;
   gameState.totalSpend = 0;
   gameState.solved = 0;
@@ -502,6 +553,7 @@ function updateLogView() {
 function buildAttemptPayload() {
   return {
     username: getPlayerName(),
+    modeId: gameState.modeId || getModeId(),
     solved: gameState.solved,
     roundsTotal: PROBLEMS.length,
     totalSpend: gameState.totalSpend,
@@ -543,6 +595,7 @@ async function submitAttempt(options = {}) {
 window.addEventListener("DOMContentLoaded", () => {
   initRegisterName();
   setWelcomeStatus("", "");
+  setModeBadge();
   // No iniciar el juego hasta que el usuario se registre.
   welcomeOverlayEl.classList.remove("hidden");
 });

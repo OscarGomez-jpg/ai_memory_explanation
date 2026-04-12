@@ -28,6 +28,14 @@
           <input id="register-name" type="text" inputmode="text" autocomplete="nickname" maxlength="24"
             placeholder="Tu nombre" />
         </label>
+        <label class="player-field" style="margin-top: 10px;">
+          <span>Modo</span>
+          <select id="register-mode">
+            <option value="memory-architect">Memory Architect</option>
+            <option value="mode-2">Modo 2</option>
+            <option value="mode-3">Modo 3</option>
+          </select>
+        </label>
         <div class="welcome-actions">
           <button type="button" id="start-game">Entrar</button>
         </div>
@@ -51,7 +59,10 @@
       </section>
 
       <section id="center-panel">
-        <div class="model-badge">Active Build: <strong id="model-name">Custom Gemma</strong></div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <div class="model-badge">Active Build: <strong id="model-name">Custom Gemma</strong></div>
+          <div class="model-badge" style="background: var(--marker-blue);">Modo: <strong id="mode-name">-</strong></div>
+        </div>
         <canvas id="game-board" width="980" height="500"></canvas>
         <div id="active-blocks-labels"
           style="margin-top: 10px; font-family: var(--font-hand); color: var(--marker-blue);"></div>
@@ -89,6 +100,7 @@
           <button type="button" id="run-round">Confirm & Run</button>
           <button type="button" id="next-problem">Next Ticket</button>
           <button type="button" id="reset-game">Reset Lab</button>
+          <button type="button" id="exit-mode">Salir del modo</button>
         </div>
       </section>
     </main>

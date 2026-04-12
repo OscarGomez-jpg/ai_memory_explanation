@@ -130,6 +130,15 @@ h1 {
   background: white;
 }
 
+.player-field select {
+  font-family: var(--font-main);
+  font-size: 1.1rem;
+  padding: 10px 12px;
+  border: 2px solid #333;
+  border-radius: 10px;
+  background: white;
+}
+
 .player-actions {
   display: grid;
   grid-auto-flow: column;
@@ -347,6 +356,11 @@ button:active {
 }
 
 #reset-game {
+  background: var(--marker-red);
+  color: white;
+}
+
+#exit-mode {
   background: var(--marker-red);
   color: white;
 }
