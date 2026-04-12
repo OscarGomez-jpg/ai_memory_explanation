@@ -330,7 +330,10 @@ function closeModal() {
   }
 }
 
-function showFinalScreen() {
+async function showFinalScreen() {
+  // Enviar datos al servidor
+  await submitAttempt();
+
   // Ocultar todo el stage
   stageEl.style.display = "none";
 
@@ -340,7 +343,7 @@ function showFinalScreen() {
   finalScreen.innerHTML = `
     <div style="text-align: center; padding: 40px;">
       <h1 style="font-family: var(--font-accent); font-size: 4rem; color: var(--marker-green); margin-bottom: 20px;">
-        ¡Gracias por participar!
+        ¡Gracias por participar${currentPlayer ? ', ' + currentPlayer.username : ''}!
       </h1>
 
       <p style="font-family: var(--font-hand); font-size: 1.5rem; color: var(--marker-blue); margin-bottom: 40px;">
@@ -991,7 +994,111 @@ function updateUI() {
   }
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+// ========== REGISTRATION & MODE SYSTEM ==========
+const welcomeOverlay = document.getElementById("welcome-overlay");
+const registerNameInput = document.getElementById("register-name");
+const registerModeSelect = document.getElementById("register-mode");
+const startGameBtn = document.getElementById("start-game");
+const welcomeStatus = document.getElementById("welcome-status");
+const exitModeBtn = document.getElementById("exit-mode");
+const modeNameEl = document.getElementById("mode-name");
+
+let currentPlayer = null;
+
+startGameBtn.addEventListener("click", handleStartGame);
+if (exitModeBtn) {
+  exitModeBtn.addEventListener("click", handleExitMode);
+}
+
+function handleStartGame() {
+  const username = registerNameInput.value.trim();
+  const modeId = registerModeSelect.value;
+
+  if (!username || username.length < 2) {
+    showWelcomeStatus("Por favor ingresa un nombre válido", "error");
+    return;
+  }
+
+  currentPlayer = { username, modeId };
+
+  // Ocultar overlay y mostrar juego
+  welcomeOverlay.style.display = "none";
+  document.getElementById("stage").style.display = "grid";
+
+  // Actualizar UI con el modo
+  if (modeNameEl) {
+    modeNameEl.textContent = getModeDisplayName(modeId);
+  }
+
   resetGame();
   syncCanvasResolution();
+}
+
+function handleExitMode() {
+  // Volver al registro
+  currentPlayer = null;
+  welcomeOverlay.style.display = "flex";
+  document.getElementById("stage").style.display = "none";
+
+  // Ocultar pantalla final si existe
+  const finalScreen = document.getElementById("final-screen");
+  if (finalScreen) {
+    finalScreen.remove();
+  }
+
+  resetGame();
+}
+
+function showWelcomeStatus(message, type = "info") {
+  welcomeStatus.textContent = message;
+  welcomeStatus.className = `status-pill ${type}`;
+  welcomeStatus.style.display = "block";
+
+  setTimeout(() => {
+    welcomeStatus.style.display = "none";
+  }, 3000);
+}
+
+function getModeDisplayName(modeId) {
+  const modes = {
+    "memory-architect": "Memory Architect",
+    "mode-2": "Modo 2",
+    "mode-3": "Modo 3"
+  };
+  return modes[modeId] || modeId;
+}
+
+async function submitAttempt() {
+  if (!currentPlayer) return;
+
+  const attemptData = {
+    username: currentPlayer.username,
+    modeId: currentPlayer.modeId,
+    solved: gameState.solved,
+    solvedFirstTry: gameState.solvedFirstTry,
+    roundsTotal: PROBLEMS.length,
+    totalSpend: gameState.totalSpend,
+    budgetRemaining: 0,
+    clientTs: new Date().toISOString(),
+  };
+
+  try {
+    const response = await fetch("/api/attempts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attemptData),
+    });
+
+    if (!response.ok) {
+      console.error("Failed to submit attempt");
+    }
+  } catch (error) {
+    console.error("Error submitting attempt:", error);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  // Iniciar con el overlay visible
+  welcomeOverlay.style.display = "flex";
+  document.getElementById("stage").style.display = "none";
 });
