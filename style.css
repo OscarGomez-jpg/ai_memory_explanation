@@ -73,14 +73,18 @@ h1 {
   grid-template-columns: 320px 1fr 300px;
   gap: 20px;
   margin-top: 20px;
+  min-height: 650px;
+  align-items: start;
 }
 
 #stage.validation-mode {
   grid-template-columns: 1fr 1fr;
+  min-height: 650px;
 }
 
 #stage.scenario-mode {
   grid-template-columns: 1fr;
+  min-height: 650px;
 }
 
 section {
@@ -88,6 +92,7 @@ section {
   border: 2px solid #333;
   padding: 16px;
   position: relative;
+  height: fit-content;
 }
 
 #left-panel {
@@ -241,20 +246,11 @@ button:active {
   box-shadow: 1px 1px 0 #333;
 }
 
-#run-round {
+#run-round, #run-scenario {
   background: var(--marker-green);
   color: white;
 }
 
-#next-problem {
-  background: var(--marker-blue);
-  color: white;
-}
-
-#reset-game, #reset-game-validation {
-  background: var(--marker-red);
-  color: white;
-}
 
 #validation-left-panel, #validation-right-panel {
   border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px;
@@ -475,15 +471,6 @@ button:active {
   transform: rotate(0deg) scale(1.05) !important;
 }
 
-#restart-from-final:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 #333;
-}
-
-#restart-from-final:active {
-  transform: translate(3px, 3px);
-  box-shadow: 2px 2px 0 #333;
-}
 
 /* Modal Styles */
 .modal-overlay {

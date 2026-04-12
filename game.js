@@ -187,10 +187,12 @@ const PROBLEMS = [
 const gameState = {
   totalSpend: 0,
   solved: 0,
+  solvedFirstTry: 0, // Tickets resueltos a la primera sin fallar
   roundIndex: 0,
   activeBlockIds: ["base"],
   latestRun: null,
   currentProblemSolved: false,
+  hasFailedCurrentProblem: false, // Si ya falló en el ticket actual
   disabledBlockIds: [], // Bloques deshabilitados para el problema actual
   selectedScenarioIndex: null, // Índice de la opción seleccionada en scenario-selection
   disabledScenarioIndices: [], // Opciones deshabilitadas en scenario-selection
@@ -210,8 +212,6 @@ const actualOutputEl = document.getElementById("actual-output");
 const roundStatusEl = document.getElementById("round-status");
 
 const runRoundBtn = document.getElementById("run-round");
-const resetGameBtn = document.getElementById("reset-game");
-const resetGameBtnValidation = document.getElementById("reset-game-validation");
 
 const modalOverlay = document.getElementById("result-modal");
 const modalTitle = document.getElementById("modal-title");
@@ -238,13 +238,9 @@ const scenarioCtx = scenarioCanvas.getContext("2d");
 const scenarioOptionsDiv = document.getElementById("scenario-options");
 const ticketProblemTitleScenario = document.getElementById("ticket-problem-title-scenario");
 const spendValueScenario = document.getElementById("spend-value-scenario");
-const resetGameBtnScenario = document.getElementById("reset-game-scenario");
 const runScenarioBtn = document.getElementById("run-scenario");
 
 runRoundBtn.addEventListener("click", runCurrentRound);
-resetGameBtn.addEventListener("click", resetGame);
-resetGameBtnValidation.addEventListener("click", resetGame);
-resetGameBtnScenario.addEventListener("click", resetGame);
 runScenarioBtn.addEventListener("click", runScenarioRound);
 modalCloseBtn.addEventListener("click", closeModal);
 answerYesBtnValidation.addEventListener("click", () => handleValidationAnswer(true));
@@ -254,10 +250,12 @@ window.addEventListener("resize", syncCanvasResolution);
 function resetGame() {
   gameState.totalSpend = 0;
   gameState.solved = 0;
+  gameState.solvedFirstTry = 0;
   gameState.roundIndex = 0;
   gameState.activeBlockIds = ["base"];
   gameState.latestRun = null;
   gameState.currentProblemSolved = false;
+  gameState.hasFailedCurrentProblem = false;
   gameState.disabledBlockIds = [];
   gameState.selectedScenarioIndex = null;
   gameState.disabledScenarioIndices = [];
@@ -270,6 +268,7 @@ function goToNextProblem() {
     gameState.latestRun = null;
     gameState.activeBlockIds = ["base"];
     gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = false;
     gameState.disabledBlockIds = [];
     gameState.selectedScenarioIndex = null;
     gameState.disabledScenarioIndices = [];
@@ -356,45 +355,23 @@ function showFinalScreen() {
         </div>
 
         <div class="final-stat-card" style="background: var(--sticky-blue); padding: 30px; border: 3px solid #333; border-radius: 5px 15px 5px 15px / 15px 5px 15px 5px; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); transform: rotate(2deg);">
-          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">Tickets Resueltos</div>
-          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-green); font-weight: bold;">${gameState.solved}/${PROBLEMS.length}</div>
-          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">completados</div>
+          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">A la Primera</div>
+          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-green); font-weight: bold;">${gameState.solvedFirstTry}/${PROBLEMS.length}</div>
+          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">sin fallar</div>
         </div>
       </div>
 
-      <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto 40px; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
+      <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
         <p style="font-family: var(--font-main); font-size: 1.2rem; line-height: 1.6; margin: 0;">
           Has explorado diferentes tipos de memoria en sistemas de IA:
           <strong style="color: var(--marker-blue);">Episodic, Procedural, External y Semantic</strong>.
           Cada una tiene su propósito específico en la arquitectura de modelos inteligentes.
         </p>
       </div>
-
-      <button type="button" id="restart-from-final" style="
-        font-family: var(--font-accent);
-        font-size: 1.5rem;
-        padding: 15px 40px;
-        border: 3px solid #333;
-        background: var(--marker-blue);
-        color: white;
-        cursor: pointer;
-        box-shadow: 6px 6px 0 #333;
-        border-radius: 10px;
-        transition: all 0.1s;
-      ">
-        Jugar de nuevo
-      </button>
     </div>
   `;
 
   document.getElementById("game-container").appendChild(finalScreen);
-
-  // Event listener para reiniciar
-  document.getElementById("restart-from-final").addEventListener("click", () => {
-    finalScreen.remove();
-    stageEl.style.display = "grid";
-    resetGame();
-  });
 }
 
 function selectScenarioOption(selectedIndex) {
@@ -432,10 +409,17 @@ function runScenarioRound() {
     // Acierta: avanza al siguiente
     gameState.solved += 1;
     gameState.currentProblemSolved = true;
+
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
+    }
+
     showScenarioResultModal(true, problem, selectedOption.text, inferenceCost);
   } else {
     // Falla: deshabilita la opción y debe reintentar
     gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = true;
 
     // Deshabilitar la opción incorrecta
     if (!gameState.disabledScenarioIndices.includes(gameState.selectedScenarioIndex)) {
@@ -488,11 +472,18 @@ function handleValidationAnswer(userAnsweredYes) {
     // Acierta: no gasta tokens
     gameState.solved += 1;
     gameState.currentProblemSolved = true;
+
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
+    }
+
     showValidationResultModal(true, problem, 0);
   } else {
     // Falla: gasta 100 tokens y avanza automáticamente
     gameState.totalSpend += 100;
     gameState.currentProblemSolved = true; // Aún así avanza
+    gameState.hasFailedCurrentProblem = true;
     showValidationResultModal(false, problem, 100);
   }
 
@@ -579,8 +570,14 @@ function runCurrentRound() {
   if (success) {
     gameState.solved += 1;
     gameState.currentProblemSolved = true;
+
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
+    }
   } else {
     gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = true;
 
     // Deshabilitar el bloque incorrecto que se intentó usar
     const incorrectBlock = gameState.activeBlockIds.find(id => id !== "base");
