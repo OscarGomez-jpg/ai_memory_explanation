@@ -130,6 +130,58 @@ const PROBLEMS = [
     correctAnswer: true, // SÍ es correcto
     explanation: "External Memory permite buscar en bases de conocimiento externas como Confluence.",
   },
+  {
+    id: 9,
+    type: "scenario-selection",
+    title: "Episodic Memory",
+    memoryType: "Episodic",
+    options: [
+      { text: "¿Cuál es la capital de Francia?", isCorrect: false },
+      { text: "¿Qué te dije sobre mis preferencias de formato?", isCorrect: true },
+      { text: "¿Cómo funciona el algoritmo de ordenamiento quicksort?", isCorrect: false },
+      { text: "¿Cuál es la política de reembolsos de la empresa?", isCorrect: false },
+    ],
+    explanation: "Episodic Memory es ideal para recordar información de la conversación actual, como preferencias mencionadas anteriormente.",
+  },
+  {
+    id: 10,
+    type: "scenario-selection",
+    title: "Procedural Memory",
+    memoryType: "Procedural",
+    options: [
+      { text: "¿Cuál fue el último mensaje que te envié?", isCorrect: false },
+      { text: "¿Qué significa machine learning?", isCorrect: false },
+      { text: "¿Cuáles son los pasos para escalar un incidente crítico?", isCorrect: true },
+      { text: "¿Qué documentación existe sobre microservicios en el wiki?", isCorrect: false },
+    ],
+    explanation: "Procedural Memory contiene reglas, protocolos y procedimientos operativos establecidos.",
+  },
+  {
+    id: 11,
+    type: "scenario-selection",
+    title: "External Memory (RAG)",
+    memoryType: "External",
+    options: [
+      { text: "¿Cuál es el protocolo de emergencia?", isCorrect: false },
+      { text: "Resume lo que hablamos hace 5 minutos.", isCorrect: false },
+      { text: "Busca información sobre la API de pagos en la documentación interna.", isCorrect: true },
+      { text: "¿Cómo se llama el CEO de la empresa?", isCorrect: false },
+    ],
+    explanation: "External Memory (RAG) permite buscar en bases de conocimiento externas y documentación almacenada.",
+  },
+  {
+    id: 12,
+    type: "scenario-selection",
+    title: "Semantic Memory",
+    memoryType: "Semantic",
+    options: [
+      { text: "¿Qué dijo el cliente sobre sus preferencias?", isCorrect: false },
+      { text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?", isCorrect: true },
+      { text: "Busca el último changelog en Confluence.", isCorrect: false },
+      { text: "¿Cuál es el proceso para aprobar un PR?", isCorrect: false },
+    ],
+    explanation: "Semantic Memory usa grafos de conocimiento para entender relaciones complejas entre entidades.",
+  },
 ];
 
 const gameState = {
@@ -140,6 +192,8 @@ const gameState = {
   latestRun: null,
   currentProblemSolved: false,
   disabledBlockIds: [], // Bloques deshabilitados para el problema actual
+  selectedScenarioIndex: null, // Índice de la opción seleccionada en scenario-selection
+  disabledScenarioIndices: [], // Opciones deshabilitadas en scenario-selection
 };
 
 const canvas = document.getElementById("game-board");
@@ -178,9 +232,20 @@ const spendValueValidation = document.getElementById("spend-value-validation");
 const validationCanvas = document.getElementById("validation-board");
 const validationCtx = validationCanvas.getContext("2d");
 
+const scenarioSelectionPanel = document.getElementById("scenario-selection-panel");
+const scenarioCanvas = document.getElementById("scenario-board");
+const scenarioCtx = scenarioCanvas.getContext("2d");
+const scenarioOptionsDiv = document.getElementById("scenario-options");
+const ticketProblemTitleScenario = document.getElementById("ticket-problem-title-scenario");
+const spendValueScenario = document.getElementById("spend-value-scenario");
+const resetGameBtnScenario = document.getElementById("reset-game-scenario");
+const runScenarioBtn = document.getElementById("run-scenario");
+
 runRoundBtn.addEventListener("click", runCurrentRound);
 resetGameBtn.addEventListener("click", resetGame);
 resetGameBtnValidation.addEventListener("click", resetGame);
+resetGameBtnScenario.addEventListener("click", resetGame);
+runScenarioBtn.addEventListener("click", runScenarioRound);
 modalCloseBtn.addEventListener("click", closeModal);
 answerYesBtnValidation.addEventListener("click", () => handleValidationAnswer(true));
 answerNoBtnValidation.addEventListener("click", () => handleValidationAnswer(false));
@@ -194,6 +259,8 @@ function resetGame() {
   gameState.latestRun = null;
   gameState.currentProblemSolved = false;
   gameState.disabledBlockIds = [];
+  gameState.selectedScenarioIndex = null;
+  gameState.disabledScenarioIndices = [];
   updateUI();
 }
 
@@ -203,7 +270,9 @@ function goToNextProblem() {
     gameState.latestRun = null;
     gameState.activeBlockIds = ["base"];
     gameState.currentProblemSolved = false;
-    gameState.disabledBlockIds = []; // Reset bloques deshabilitados para el nuevo problema
+    gameState.disabledBlockIds = [];
+    gameState.selectedScenarioIndex = null;
+    gameState.disabledScenarioIndices = [];
   }
   updateUI();
 }
@@ -260,6 +329,87 @@ function closeModal() {
       alert(`¡Juego completado!\n\nTotal gastado: ${gameState.totalSpend} cr\nTickets resueltos: ${gameState.solved}/${PROBLEMS.length}`);
     }
   }
+}
+
+function selectScenarioOption(selectedIndex) {
+  // Solo permitir seleccionar si no está deshabilitada
+  if (gameState.disabledScenarioIndices.includes(selectedIndex)) {
+    return;
+  }
+
+  // Si ya estaba seleccionada, deseleccionar
+  if (gameState.selectedScenarioIndex === selectedIndex) {
+    gameState.selectedScenarioIndex = null;
+  } else {
+    gameState.selectedScenarioIndex = selectedIndex;
+  }
+
+  updateUI();
+}
+
+function runScenarioRound() {
+  const problem = PROBLEMS[gameState.roundIndex];
+
+  // Verificar que haya seleccionado una opción
+  if (gameState.selectedScenarioIndex === null) {
+    showWarningModal();
+    return;
+  }
+
+  const selectedOption = problem.options[gameState.selectedScenarioIndex];
+
+  // Calcular costo (similar a la primera modalidad)
+  const inferenceCost = 20;
+  gameState.totalSpend += inferenceCost;
+
+  if (selectedOption.isCorrect) {
+    // Acierta: avanza al siguiente
+    gameState.solved += 1;
+    gameState.currentProblemSolved = true;
+    showScenarioResultModal(true, problem, selectedOption.text, inferenceCost);
+  } else {
+    // Falla: deshabilita la opción y debe reintentar
+    gameState.currentProblemSolved = false;
+
+    // Deshabilitar la opción incorrecta
+    if (!gameState.disabledScenarioIndices.includes(gameState.selectedScenarioIndex)) {
+      gameState.disabledScenarioIndices.push(gameState.selectedScenarioIndex);
+    }
+
+    // Deseleccionar
+    gameState.selectedScenarioIndex = null;
+
+    showScenarioResultModal(false, problem, selectedOption.text, inferenceCost);
+  }
+
+  updateUI();
+}
+
+function showScenarioResultModal(success, problem, selectedText, cost) {
+  const modalContent = document.querySelector(".modal-content");
+
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Correcto!";
+    modalMessage.textContent = "Has identificado correctamente el escenario que puede resolverse con esta arquitectura.";
+    modalDetails.innerHTML = `
+      <p><strong>Tu selección:</strong> ${selectedText}</p>
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Incorrecto";
+    modalMessage.textContent = "Esta arquitectura no es la más adecuada para el escenario seleccionado. Intenta con otra opción.";
+    modalDetails.innerHTML = `
+      <p><strong>Tu selección:</strong> ${selectedText}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = "Reintentar";
+  }
+
+  modalOverlay.style.display = "flex";
 }
 
 function handleValidationAnswer(userAnsweredYes) {
@@ -537,6 +687,72 @@ function syncCanvasResolution() {
   drawBoard();
 }
 
+function drawScenarioBoard(problem) {
+  const w = 900;
+  const h = 280;
+  scenarioCtx.clearRect(0, 0, w, h);
+
+  const midY = h / 2;
+  const leftX = 100;
+  const rightX = w - 100;
+  const centerX = w / 2;
+
+  // Nodo Central - GEMMA
+  drawNodeOnCanvas(scenarioCtx, centerX, midY, 55, "GEMMA", "#dcfce7");
+
+  // Nodo Input y Output
+  drawNodeOnCanvas(scenarioCtx, leftX, midY, 30, "USER", "#dbeafe");
+  drawNodeOnCanvas(scenarioCtx, rightX, midY, 30, "OUTPUT", "#fee2e2");
+
+  // Conexión básica
+  roughLineOnCanvas(scenarioCtx, leftX + 30, midY, centerX - 55, midY);
+  roughLineOnCanvas(scenarioCtx, centerX + 55, midY, rightX - 30, midY);
+
+  // Dibujar el bloque de memoria según el tipo
+  const memoryType = problem.memoryType;
+
+  if (memoryType === "Episodic") {
+    const ey = midY + 90;
+    drawNodeOnCanvas(scenarioCtx, centerX, ey, 40, "HISTORY", "#fef3c7");
+    roughLineOnCanvas(scenarioCtx, rightX - 10, midY + 30, centerX + 30, ey - 10);
+    roughLineOnCanvas(scenarioCtx, centerX - 30, ey - 10, leftX + 10, midY + 30);
+  } else if (memoryType === "Procedural") {
+    const py = midY - 90;
+    drawNodeOnCanvas(scenarioCtx, centerX, py, 40, "POLICIES", "#e0f2fe");
+    roughLineOnCanvas(scenarioCtx, centerX, py + 40, centerX, midY - 55);
+  } else if (memoryType === "External") {
+    const ex = centerX - 160;
+    const ey = midY - 70;
+    drawNodeOnCanvas(scenarioCtx, ex, ey, 40, "VECTOR DB", "#f3e8ff");
+    roughLineOnCanvas(scenarioCtx, leftX + 20, midY - 25, ex + 10, ey + 30);
+    roughLineOnCanvas(scenarioCtx, ex + 35, ey + 10, centerX - 40, midY - 35);
+  } else if (memoryType === "Semantic") {
+    const ex = centerX + 160;
+    const ey = midY - 70;
+    drawNodeOnCanvas(scenarioCtx, ex, ey, 40, "K-GRAPH", "#fff7ed");
+    roughLineOnCanvas(scenarioCtx, centerX + 40, midY - 35, ex - 35, ey + 10);
+    roughLineOnCanvas(scenarioCtx, ex - 10, ey + 30, rightX - 20, midY - 25);
+  }
+}
+
+function renderScenarioOptions(problem) {
+  scenarioOptionsDiv.innerHTML = "";
+
+  problem.options.forEach((option, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const isSelected = gameState.selectedScenarioIndex === index;
+    const isDisabled = gameState.disabledScenarioIndices.includes(index);
+
+    btn.className = `scenario-option-btn ${isSelected ? "selected" : ""} ${isDisabled ? "disabled-incorrect" : ""}`;
+    btn.textContent = option.text;
+    btn.disabled = isDisabled;
+
+    btn.addEventListener("click", () => selectScenarioOption(index));
+    scenarioOptionsDiv.appendChild(btn);
+  });
+}
+
 function drawValidationBoard(problem) {
   const w = validationCanvas.clientWidth;
   const h = 600;
@@ -634,19 +850,37 @@ function drawNodeOnCanvas(context, x, y, r, label, color) {
 function updateUI() {
   spendValueEl.textContent = String(gameState.totalSpend);
   spendValueValidation.textContent = String(gameState.totalSpend);
+  spendValueScenario.textContent = String(gameState.totalSpend);
 
   const problem = PROBLEMS[gameState.roundIndex];
 
-  // Mostrar UI diferente según el tipo de ticket
-  if (problem.type === "validation") {
-    // Cambiar layout
+  // Ocultar todos los paneles primero
+  const architectureElements = document.querySelectorAll(".architecture-only");
+  const validationElements = document.querySelectorAll(".validation-only");
+  const scenarioElements = document.querySelectorAll(".scenario-only");
+
+  architectureElements.forEach(el => el.style.display = "none");
+  validationElements.forEach(el => el.style.display = "none");
+  scenarioElements.forEach(el => el.style.display = "none");
+
+  // Mostrar UI según el tipo de ticket
+  if (problem.type === "scenario-selection") {
+    // Cambiar layout a modo scenario
+    stageEl.className = "scenario-mode";
+    scenarioSelectionPanel.style.display = "block";
+
+    ticketProblemTitleScenario.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 0.95rem;">Ticket #${problem.id}</div>
+      <div style="font-size: 1.5rem; font-family: var(--font-accent); color: var(--marker-blue); margin-top: 5px;">${problem.title}</div>
+    `;
+
+    // Dibujar el grafo y renderizar opciones
+    drawScenarioBoard(problem);
+    renderScenarioOptions(problem);
+
+  } else if (problem.type === "validation") {
+    // Cambiar layout a modo validation
     stageEl.className = "validation-mode";
-
-    // Ocultar elementos de architecture
-    const architectureElements = document.querySelectorAll(".architecture-only");
-    architectureElements.forEach(el => el.style.display = "none");
-
-    // Mostrar elementos de validation
     validationLeftPanel.style.display = "block";
     validationRightPanel.style.display = "block";
 
@@ -659,17 +893,11 @@ function updateUI() {
 
     // Dibujar el grafo de validación
     drawValidationBoard(problem);
+
   } else {
-    // Cambiar layout
+    // Modo architecture (original)
     stageEl.className = "";
-
-    // Mostrar elementos de architecture
-    const architectureElements = document.querySelectorAll(".architecture-only");
     architectureElements.forEach(el => el.style.display = "block");
-
-    // Ocultar elementos de validation
-    validationLeftPanel.style.display = "none";
-    validationRightPanel.style.display = "none";
 
     ticketProblemTitleEl.innerHTML = `
       <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
