@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DATA_PATH: /data/data.json
+    volumes:
+      - prg-data:/data
+
+volumes:
+  prg-data:
