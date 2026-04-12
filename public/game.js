@@ -1,14 +1,4 @@
 const MODEL_NAME = "Gemma 4:2be Custom";
-const START_BUDGET = 1000;
-
-const PLAYER_NAME_STORAGE_KEY = "prg_player_name";
-const PLAYER_MODE_STORAGE_KEY = "prg_mode_id";
-
-const GAME_MODES = [
-  { id: "memory-architect", name: "Memory Architect" },
-  { id: "mode-2", name: "Modo 2" },
-  { id: "mode-3", name: "Modo 3" },
-];
 
 // BLOQUES DE MEMORIA DISPONIBLES
 const MEMORY_BLOCKS = [
@@ -17,7 +7,7 @@ const MEMORY_BLOCKS = [
     name: "Parametric",
     description: "Model weights. Pure training data.",
     cost: 0,
-    reliability: 0.4,
+    reliability: 0.40,
     color: "#dcfce7",
     mandatory: true,
   },
@@ -35,7 +25,7 @@ const MEMORY_BLOCKS = [
     name: "Procedural",
     description: "System prompts & operating rules.",
     cost: 150,
-    reliability: 0.2,
+    reliability: 0.20,
     color: "#e0f2fe",
     problemMatch: "Procedural",
   },
@@ -53,7 +43,7 @@ const MEMORY_BLOCKS = [
     name: "Semantic",
     description: "Knowledge Graphs & entity relationships.",
     cost: 350,
-    reliability: 0.3,
+    reliability: 0.30,
     color: "#fff7ed",
     problemMatch: "Semantic",
   },
@@ -62,6 +52,7 @@ const MEMORY_BLOCKS = [
 const PROBLEMS = [
   {
     id: 1,
+    type: "architecture",
     title: "Vuelo de Marta",
     priority: "Episodic",
     details: "Requiere recordar datos de la conversación inmediata.",
@@ -72,6 +63,7 @@ const PROBLEMS = [
   },
   {
     id: 2,
+    type: "architecture",
     title: "Documentación Técnica",
     priority: "External",
     details: "Consulta de base de conocimientos masiva.",
@@ -82,6 +74,7 @@ const PROBLEMS = [
   },
   {
     id: 3,
+    type: "architecture",
     title: "Reserva de Diego",
     priority: "Semantic",
     details: "Relaciones entre entidades y preferencias.",
@@ -92,6 +85,7 @@ const PROBLEMS = [
   },
   {
     id: 4,
+    type: "architecture",
     title: "Políticas de Empresa",
     priority: "Procedural",
     details: "Instrucciones de actuación y protocolos.",
@@ -100,261 +94,503 @@ const PROBLEMS = [
     targetKey: "responsable",
     expectedOutput: "El responsable del hotfix es Paula.",
   },
+  {
+    id: 5,
+    type: "validation",
+    title: "Consulta sobre Python",
+    scenario: "Un usuario pregunta: '¿Cuál es la sintaxis para crear una lista en Python?'",
+    chosenMemory: "Episodic Memory",
+    correctAnswer: false, // NO es correcto
+    explanation: "Esta pregunta requiere conocimiento general de programación, no de conversaciones previas. Debería usar Parametric Memory (conocimiento base del modelo).",
+  },
+  {
+    id: 6,
+    type: "validation",
+    title: "Recordar preferencias del usuario",
+    scenario: "El usuario dice: 'Recuerda que prefiero respuestas cortas'. Más tarde pregunta algo y el modelo debe responder brevemente.",
+    chosenMemory: "Episodic Memory",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "Episodic Memory es ideal para recordar preferencias mencionadas en la conversación actual.",
+  },
+  {
+    id: 7,
+    type: "validation",
+    title: "Políticas de devolución",
+    scenario: "Un cliente pregunta sobre el proceso de devolución de productos. El sistema necesita seguir las políticas establecidas por la empresa.",
+    chosenMemory: "Procedural Memory",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "Procedural Memory contiene las reglas y procedimientos operativos de la empresa.",
+  },
+  {
+    id: 8,
+    type: "validation",
+    title: "Búsqueda en documentación técnica",
+    scenario: "Un desarrollador pregunta sobre cómo configurar un servicio específico que está documentado en Confluence.",
+    chosenMemory: "External Memory (RAG)",
+    correctAnswer: true, // SÍ es correcto
+    explanation: "External Memory permite buscar en bases de conocimiento externas como Confluence.",
+  },
+  {
+    id: 9,
+    type: "scenario-selection",
+    title: "Episodic Memory",
+    memoryType: "Episodic",
+    options: [
+      { text: "¿Cuál es la capital de Francia?", isCorrect: false },
+      { text: "¿Qué te dije sobre mis preferencias de formato?", isCorrect: true },
+      { text: "¿Cómo funciona el algoritmo de ordenamiento quicksort?", isCorrect: false },
+      { text: "¿Cuál es la política de reembolsos de la empresa?", isCorrect: false },
+    ],
+    explanation: "Episodic Memory es ideal para recordar información de la conversación actual, como preferencias mencionadas anteriormente.",
+  },
+  {
+    id: 10,
+    type: "scenario-selection",
+    title: "Procedural Memory",
+    memoryType: "Procedural",
+    options: [
+      { text: "¿Cuál fue el último mensaje que te envié?", isCorrect: false },
+      { text: "¿Qué significa machine learning?", isCorrect: false },
+      { text: "¿Cuáles son los pasos para escalar un incidente crítico?", isCorrect: true },
+      { text: "¿Qué documentación existe sobre microservicios en el wiki?", isCorrect: false },
+    ],
+    explanation: "Procedural Memory contiene reglas, protocolos y procedimientos operativos establecidos.",
+  },
+  {
+    id: 11,
+    type: "scenario-selection",
+    title: "External Memory (RAG)",
+    memoryType: "External",
+    options: [
+      { text: "¿Cuál es el protocolo de emergencia?", isCorrect: false },
+      { text: "Resume lo que hablamos hace 5 minutos.", isCorrect: false },
+      { text: "Busca información sobre la API de pagos en la documentación interna.", isCorrect: true },
+      { text: "¿Cómo se llama el CEO de la empresa?", isCorrect: false },
+    ],
+    explanation: "External Memory (RAG) permite buscar en bases de conocimiento externas y documentación almacenada.",
+  },
+  {
+    id: 12,
+    type: "scenario-selection",
+    title: "Semantic Memory",
+    memoryType: "Semantic",
+    options: [
+      { text: "¿Qué dijo el cliente sobre sus preferencias?", isCorrect: false },
+      { text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?", isCorrect: true },
+      { text: "Busca el último changelog en Confluence.", isCorrect: false },
+      { text: "¿Cuál es el proceso para aprobar un PR?", isCorrect: false },
+    ],
+    explanation: "Semantic Memory usa grafos de conocimiento para entender relaciones complejas entre entidades.",
+  },
 ];
 
 const gameState = {
-  budget: START_BUDGET,
   totalSpend: 0,
   solved: 0,
+  solvedFirstTry: 0, // Tickets resueltos a la primera sin fallar
   roundIndex: 0,
   activeBlockIds: ["base"],
   latestRun: null,
-  gameOver: false,
-  logs: [],
-  lastSubmittedAttemptId: null,
-  modeId: "memory-architect",
+  currentProblemSolved: false,
+  hasFailedCurrentProblem: false, // Si ya falló en el ticket actual
+  disabledBlockIds: [], // Bloques deshabilitados para el problema actual
+  selectedScenarioIndex: null, // Índice de la opción seleccionada en scenario-selection
+  disabledScenarioIndices: [], // Opciones deshabilitadas en scenario-selection
 };
 
 const canvas = document.getElementById("game-board");
 const ctx = canvas.getContext("2d");
 
-const budgetValueEl = document.getElementById("budget-value");
 const spendValueEl = document.getElementById("spend-value");
 const ticketProblemTitleEl = document.getElementById("ticket-problem-title");
 const customerMessageEl = document.getElementById("customer-message");
 const scoreQualityEl = document.getElementById("score-quality");
 const scoreMemoryEl = document.getElementById("score-memory");
 const infraCardsEl = document.getElementById("infra-cards");
-const turnLogEl = document.getElementById("turn-log");
 const expectedOutputEl = document.getElementById("expected-output");
 const actualOutputEl = document.getElementById("actual-output");
 const roundStatusEl = document.getElementById("round-status");
 
 const runRoundBtn = document.getElementById("run-round");
-const nextProblemBtn = document.getElementById("next-problem");
-const resetGameBtn = document.getElementById("reset-game");
 
-const welcomeOverlayEl = document.getElementById("welcome-overlay");
-const registerNameInput = document.getElementById("register-name");
-const registerModeSelect = document.getElementById("register-mode");
-const startGameBtn = document.getElementById("start-game");
-const welcomeStatusEl = document.getElementById("welcome-status");
+const modalOverlay = document.getElementById("result-modal");
+const modalTitle = document.getElementById("modal-title");
+const modalMessage = document.getElementById("modal-message");
+const modalDetails = document.getElementById("modal-details");
+const modalCloseBtn = document.getElementById("modal-close-btn");
 
-const modeNameEl = document.getElementById("mode-name");
-const exitModeBtn = document.getElementById("exit-mode");
+const stageEl = document.getElementById("stage");
+const validationLeftPanel = document.getElementById("validation-left-panel");
+const validationRightPanel = document.getElementById("validation-right-panel");
+const chosenMemoryElValidation = document.getElementById("chosen-memory-validation");
+const answerYesBtnValidation = document.getElementById("answer-yes-validation");
+const answerNoBtnValidation = document.getElementById("answer-no-validation");
+const ticketProblemTitleValidation = document.getElementById("ticket-problem-title-validation");
+const customerMessageValidation = document.getElementById("customer-message-validation");
+const spendValueValidation = document.getElementById("spend-value-validation");
+
+const validationCanvas = document.getElementById("validation-board");
+const validationCtx = validationCanvas.getContext("2d");
+
+const scenarioSelectionPanel = document.getElementById("scenario-selection-panel");
+const scenarioCanvas = document.getElementById("scenario-board");
+const scenarioCtx = scenarioCanvas.getContext("2d");
+const scenarioOptionsDiv = document.getElementById("scenario-options");
+const ticketProblemTitleScenario = document.getElementById("ticket-problem-title-scenario");
+const spendValueScenario = document.getElementById("spend-value-scenario");
+const runScenarioBtn = document.getElementById("run-scenario");
 
 runRoundBtn.addEventListener("click", runCurrentRound);
-nextProblemBtn.addEventListener("click", () => void goToNextProblem());
-resetGameBtn.addEventListener("click", resetGame);
+runScenarioBtn.addEventListener("click", runScenarioRound);
+modalCloseBtn.addEventListener("click", closeModal);
+answerYesBtnValidation.addEventListener("click", () => handleValidationAnswer(true));
+answerNoBtnValidation.addEventListener("click", () => handleValidationAnswer(false));
 window.addEventListener("resize", syncCanvasResolution);
 
-startGameBtn.addEventListener("click", startGame);
-registerNameInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") startGame();
-});
-
-exitModeBtn.addEventListener("click", () => void exitMode());
-
-function sanitizeUsername(value) {
-  const trimmed = String(value || "").trim();
-  // Keep it aligned with backend validation; remove unsupported chars.
-  return trimmed.replace(/[^\p{L}0-9 _.-]/gu, "").slice(0, 24);
-}
-
-function setWelcomeStatus(text, kind) {
-  welcomeStatusEl.textContent = text;
-  welcomeStatusEl.className = `status-pill${kind ? ` ${kind}` : ""}`;
-}
-
-function getPlayerName() {
-  const stored = sanitizeUsername(
-    localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
-  );
-  return stored;
-}
-
-function getModeId() {
-  const stored = String(
-    localStorage.getItem(PLAYER_MODE_STORAGE_KEY) || "",
-  ).trim();
-  if (GAME_MODES.some((m) => m.id === stored)) return stored;
-  return "memory-architect";
-}
-
-function setModeBadge() {
-  const modeId = getModeId();
-  const mode = GAME_MODES.find((m) => m.id === modeId);
-  modeNameEl.textContent = mode ? mode.name : modeId;
-}
-
-function initRegisterName() {
-  const stored = sanitizeUsername(
-    localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
-  );
-  if (stored) registerNameInput.value = stored;
-
-  const modeId = getModeId();
-  registerModeSelect.value = modeId;
-}
-
-function startGame() {
-  const cleaned = sanitizeUsername(registerNameInput.value);
-  if (!cleaned || cleaned.length < 2) {
-    setWelcomeStatus("Escribe un nombre válido (min 2).", "warn");
-    return;
-  }
-
-  const selectedMode = String(registerModeSelect.value || "").trim();
-  if (!GAME_MODES.some((m) => m.id === selectedMode)) {
-    setWelcomeStatus("Selecciona un modo válido.", "warn");
-    return;
-  }
-
-  localStorage.setItem(PLAYER_NAME_STORAGE_KEY, cleaned);
-  localStorage.setItem(PLAYER_MODE_STORAGE_KEY, selectedMode);
-  gameState.modeId = selectedMode;
-  setModeBadge();
-
-  setWelcomeStatus("", "");
-  welcomeOverlayEl.classList.add("hidden");
-
-  resetGame();
-  syncCanvasResolution();
-}
-
-async function exitMode() {
-  // Guardar un snapshot actual antes de salir.
-  await submitAttempt({ silent: true });
-
-  welcomeOverlayEl.classList.remove("hidden");
-  initRegisterName();
-  setWelcomeStatus("Puedes cambiar el modo y volver a entrar.", "ok");
-}
-
 function resetGame() {
-  gameState.modeId = getModeId();
-  gameState.budget = START_BUDGET;
   gameState.totalSpend = 0;
   gameState.solved = 0;
+  gameState.solvedFirstTry = 0;
   gameState.roundIndex = 0;
   gameState.activeBlockIds = ["base"];
   gameState.latestRun = null;
-  gameState.gameOver = false;
-  gameState.logs = [];
-  gameState.lastSubmittedAttemptId = null;
-  addLog("Lab de Memoria reiniciado.");
+  gameState.currentProblemSolved = false;
+  gameState.hasFailedCurrentProblem = false;
+  gameState.disabledBlockIds = [];
+  gameState.selectedScenarioIndex = null;
+  gameState.disabledScenarioIndices = [];
   updateUI();
 }
 
-function addLog(text) {
-  gameState.logs.push(text);
-  if (gameState.logs.length > 20) gameState.logs.shift();
-}
-
-async function goToNextProblem() {
-  // Al avanzar, enviamos el puntaje actual al servidor.
-  nextProblemBtn.disabled = true;
-  try {
-    await submitAttempt({ silent: true });
-  } finally {
-    nextProblemBtn.disabled = false;
-  }
-
+function goToNextProblem() {
   if (gameState.roundIndex < PROBLEMS.length - 1) {
     gameState.roundIndex += 1;
     gameState.latestRun = null;
-    gameState.activeBlockIds = ["base"]; // Limpiar para el siguiente
-    addLog(`Nuevo ticket: #${gameState.roundIndex + 1}.`);
-  } else {
-    addLog("Has terminado todos los tickets.");
+    gameState.activeBlockIds = ["base"];
+    gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = false;
+    gameState.disabledBlockIds = [];
+    gameState.selectedScenarioIndex = null;
+    gameState.disabledScenarioIndices = [];
   }
   updateUI();
 }
 
-function runCurrentRound() {
-  if (gameState.gameOver) return;
+function showModal(success, problem, actualOutput, cost) {
+  const modalContent = document.querySelector(".modal-content");
 
-  const problem = PROBLEMS[gameState.roundIndex];
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Éxito!";
+    modalMessage.textContent = `Has construido la arquitectura correcta para resolver el ticket de ${problem.priority}.`;
+    modalDetails.innerHTML = `
+      <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
+      <p><strong>Generado:</strong> ${actualOutput}</p>
+      <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Fallo";
+    modalMessage.textContent = `La arquitectura no pudo recuperar la información correcta. Intenta agregar o quitar bloques de memoria.`;
+    modalDetails.innerHTML = `
+      <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
+      <p><strong>Generado:</strong> ${actualOutput}</p>
+      <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = "Reintentar";
+  }
 
-  // Calcular coste del build actual
-  let currentBuildCost = 0;
-  gameState.activeBlockIds.forEach((id) => {
-    const block = MEMORY_BLOCKS.find((b) => b.id === id);
-    currentBuildCost += block.cost;
-  });
+  modalOverlay.style.display = "flex";
+}
 
-  const totalCost = currentBuildCost + 20; // 20 cr de coste fijo de inferencia
+function showWarningModal() {
+  const modalContent = document.querySelector(".modal-content");
+  modalContent.className = "modal-content modal-failure";
+  modalTitle.textContent = "Atención";
+  modalMessage.textContent = "Debes seleccionar al menos un bloque de memoria adicional del Memory Toolbox antes de ejecutar.";
+  modalDetails.innerHTML = `
+    <p>El modelo base (Parametric) solo no es suficiente para resolver los tickets.</p>
+    <p>Haz clic en los bloques de memoria disponibles en el panel izquierdo.</p>
+  `;
+  modalCloseBtn.textContent = "Entendido";
+  modalOverlay.style.display = "flex";
+}
 
-  if (gameState.budget < totalCost) {
-    addLog("⚠️ Presupuesto insuficiente para este build.");
-    updateUI();
+function closeModal() {
+  modalOverlay.style.display = "none";
+
+  if (gameState.currentProblemSolved) {
+    if (gameState.roundIndex < PROBLEMS.length - 1) {
+      goToNextProblem();
+    } else {
+      // Juego terminado - mostrar pantalla final
+      showFinalScreen();
+    }
+  }
+}
+
+function showFinalScreen() {
+  // Ocultar todo el stage
+  stageEl.style.display = "none";
+
+  // Crear y mostrar la pantalla final
+  const finalScreen = document.createElement("div");
+  finalScreen.id = "final-screen";
+  finalScreen.innerHTML = `
+    <div style="text-align: center; padding: 40px;">
+      <h1 style="font-family: var(--font-accent); font-size: 4rem; color: var(--marker-green); margin-bottom: 20px;">
+        ¡Gracias por participar!
+      </h1>
+
+      <p style="font-family: var(--font-hand); font-size: 1.5rem; color: var(--marker-blue); margin-bottom: 40px;">
+        Has completado el Memory Architect Challenge
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; max-width: 700px; margin: 0 auto 40px;">
+        <div class="final-stat-card" style="background: var(--sticky-yellow); padding: 30px; border: 3px solid #333; border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); transform: rotate(-2deg);">
+          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">Total de Tokens</div>
+          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-red); font-weight: bold;">${gameState.totalSpend}</div>
+          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">créditos</div>
+        </div>
+
+        <div class="final-stat-card" style="background: var(--sticky-blue); padding: 30px; border: 3px solid #333; border-radius: 5px 15px 5px 15px / 15px 5px 15px 5px; box-shadow: 8px 8px 0 rgba(0,0,0,0.2); transform: rotate(2deg);">
+          <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 10px;">A la Primera</div>
+          <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-green); font-weight: bold;">${gameState.solvedFirstTry}/${PROBLEMS.length}</div>
+          <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">sin fallar</div>
+        </div>
+      </div>
+
+      <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
+        <p style="font-family: var(--font-main); font-size: 1.2rem; line-height: 1.6; margin: 0;">
+          Has explorado diferentes tipos de memoria en sistemas de IA:
+          <strong style="color: var(--marker-blue);">Episodic, Procedural, External y Semantic</strong>.
+          Cada una tiene su propósito específico en la arquitectura de modelos inteligentes.
+        </p>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("game-container").appendChild(finalScreen);
+}
+
+function selectScenarioOption(selectedIndex) {
+  // Solo permitir seleccionar si no está deshabilitada
+  if (gameState.disabledScenarioIndices.includes(selectedIndex)) {
     return;
   }
 
-  gameState.budget -= totalCost;
-  gameState.totalSpend += totalCost;
+  // Si ya estaba seleccionada, deseleccionar
+  if (gameState.selectedScenarioIndex === selectedIndex) {
+    gameState.selectedScenarioIndex = null;
+  } else {
+    gameState.selectedScenarioIndex = selectedIndex;
+  }
 
-  // Lógica de éxito
-  let successProb = 0.35; // Probabilidad base (Parametric solo)
-  gameState.activeBlockIds.forEach((id) => {
-    const b = MEMORY_BLOCKS.find((block) => block.id === id);
-    if (!b.mandatory) successProb += 0.1; // Pequeño bonus por tener cualquier bloque extra
-    if (b.problemMatch === problem.priority) successProb += 0.5; // Gran bonus por match de prioridad
-  });
+  updateUI();
+}
 
-  const roll = Math.random();
-  const success = roll <= successProb;
+function runScenarioRound() {
+  const problem = PROBLEMS[gameState.roundIndex];
 
-  // Determinar si es ÓPTIMO: Tiene el bloque correcto y NO tiene bloques extra innecesarios
-  const requiredBlock = MEMORY_BLOCKS.find(
-    (b) => b.problemMatch === problem.priority,
-  );
-  const isOptimal =
-    gameState.activeBlockIds.length === 2 &&
-    gameState.activeBlockIds.includes("base") &&
-    gameState.activeBlockIds.includes(requiredBlock.id);
+  // Verificar que haya seleccionado una opción
+  if (gameState.selectedScenarioIndex === null) {
+    showWarningModal();
+    return;
+  }
 
-  if (success) {
+  const selectedOption = problem.options[gameState.selectedScenarioIndex];
+
+  // Calcular costo (similar a la primera modalidad)
+  const inferenceCost = 20;
+  gameState.totalSpend += inferenceCost;
+
+  if (selectedOption.isCorrect) {
+    // Acierta: avanza al siguiente
     gameState.solved += 1;
+    gameState.currentProblemSolved = true;
 
-    // SISTEMA DE RECOMPENSAS
-    let reward = 100; // Recompensa base
-    let message = `✅ Ticket resuelto. +${reward} cr.`;
-
-    if (isOptimal) {
-      const bonus = 200; // Bono por arquitectura óptima
-      reward += bonus;
-      message = `🌟 ¡ARQUITECTURA ÓPTIMA! Bono de eficiencia: +${reward} cr.`;
-    } else if (gameState.activeBlockIds.length > 2) {
-      reward = 50; // Recompensa reducida por over-engineering
-      message = `⚠️ Resuelto, pero con sobrecoste (Over-engineering). +${reward} cr.`;
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
     }
 
-    gameState.budget += reward;
-    addLog(message);
+    showScenarioResultModal(true, problem, selectedOption.text, inferenceCost);
   } else {
-    addLog(
-      `❌ Fallo: El modelo alucinó o no recuperó el dato (${problem.priority}).`,
-    );
+    // Falla: deshabilita la opción y debe reintentar
+    gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = true;
+
+    // Deshabilitar la opción incorrecta
+    if (!gameState.disabledScenarioIndices.includes(gameState.selectedScenarioIndex)) {
+      gameState.disabledScenarioIndices.push(gameState.selectedScenarioIndex);
+    }
+
+    // Deseleccionar
+    gameState.selectedScenarioIndex = null;
+
+    showScenarioResultModal(false, problem, selectedOption.text, inferenceCost);
   }
+
+  updateUI();
+}
+
+function showScenarioResultModal(success, problem, selectedText, cost) {
+  const modalContent = document.querySelector(".modal-content");
+
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Correcto!";
+    modalMessage.textContent = "Has identificado correctamente el escenario que puede resolverse con esta arquitectura.";
+    modalDetails.innerHTML = `
+      <p><strong>Tu selección:</strong> ${selectedText}</p>
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Incorrecto";
+    modalMessage.textContent = "Esta arquitectura no es la más adecuada para el escenario seleccionado. Intenta con otra opción.";
+    modalDetails.innerHTML = `
+      <p><strong>Tu selección:</strong> ${selectedText}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+    modalCloseBtn.textContent = "Reintentar";
+  }
+
+  modalOverlay.style.display = "flex";
+}
+
+function handleValidationAnswer(userAnsweredYes) {
+  const problem = PROBLEMS[gameState.roundIndex];
+
+  // Verificar si la respuesta es correcta
+  const isCorrect = userAnsweredYes === problem.correctAnswer;
+
+  if (isCorrect) {
+    // Acierta: no gasta tokens
+    gameState.solved += 1;
+    gameState.currentProblemSolved = true;
+
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
+    }
+
+    showValidationResultModal(true, problem, 0);
+  } else {
+    // Falla: gasta 100 tokens y avanza automáticamente
+    gameState.totalSpend += 100;
+    gameState.currentProblemSolved = true; // Aún así avanza
+    gameState.hasFailedCurrentProblem = true;
+    showValidationResultModal(false, problem, 100);
+  }
+
+  updateUI();
+}
+
+function showValidationResultModal(success, problem, cost) {
+  const modalContent = document.querySelector(".modal-content");
+
+  if (success) {
+    modalContent.className = "modal-content modal-success";
+    modalTitle.textContent = "¡Correcto!";
+    modalMessage.textContent = "Has evaluado correctamente la selección de memoria.";
+    modalDetails.innerHTML = `
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+  } else {
+    modalContent.className = "modal-content modal-failure";
+    modalTitle.textContent = "Incorrecto";
+    modalMessage.textContent = "La evaluación no fue correcta.";
+    modalDetails.innerHTML = `
+      <p><strong>Explicación:</strong> ${problem.explanation}</p>
+      <p><strong>Tokens gastados:</strong> ${cost} cr</p>
+    `;
+  }
+
+  modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  modalOverlay.style.display = "flex";
+}
+
+function runCurrentRound() {
+  const problem = PROBLEMS[gameState.roundIndex];
+
+  // Verificar que haya seleccionado al menos un bloque adicional (no solo base)
+  if (gameState.activeBlockIds.length === 1 && gameState.activeBlockIds[0] === "base") {
+    showWarningModal();
+    return;
+  }
+
+  // Calcular coste del build actual
+  let currentBuildCost = 0;
+  gameState.activeBlockIds.forEach(id => {
+    const block = MEMORY_BLOCKS.find(b => b.id === id);
+    currentBuildCost += block.cost;
+  });
+
+  // Coste de inferencia (basado en la complejidad del problema)
+  const inferenceCost = 20;
+  const totalCost = currentBuildCost + inferenceCost;
+
+  // Siempre gastar tokens
+  gameState.totalSpend += totalCost;
+
+  // Lógica de éxito: DEBE tener el bloque necesario para la prioridad del problema
+  const hasRequiredMemory = gameState.activeBlockIds.some(id => {
+    const b = MEMORY_BLOCKS.find(block => block.id === id);
+    return b.problemMatch === problem.priority;
+  });
+
+  // Éxito determinístico: solo si tiene el bloque correcto
+  const success = hasRequiredMemory;
+
+  // Calcular métricas para visualización
+  let successProb = 0.4; // Base Model
+  gameState.activeBlockIds.forEach(id => {
+    const b = MEMORY_BLOCKS.find(block => block.id === id);
+    if (!b.mandatory) successProb += 0.1;
+    if (b.problemMatch === problem.priority) successProb += 0.4;
+  });
+
+  const actualOutput = success ? problem.expectedOutput : "Lo siento, no tengo esa información.";
 
   gameState.latestRun = {
     expected: problem.expectedOutput,
-    actual: success
-      ? problem.expectedOutput
-      : roll > 0.9
-        ? "Error de alucinación (Temperature High)."
-        : "No tengo acceso a esa información de memoria.",
+    actual: actualOutput,
     success,
     metrics: {
-      quality: Math.min(100, Math.round(successProb * 100)),
-      memory: Math.round(
-        (gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100,
-      ),
-    },
+        quality: Math.min(100, Math.round(successProb * 100)),
+        memory: Math.round((gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100)
+    }
   };
 
+  if (success) {
+    gameState.solved += 1;
+    gameState.currentProblemSolved = true;
+
+    // Si no había fallado antes, cuenta como resuelto a la primera
+    if (!gameState.hasFailedCurrentProblem) {
+      gameState.solvedFirstTry += 1;
+    }
+  } else {
+    gameState.currentProblemSolved = false;
+    gameState.hasFailedCurrentProblem = true;
+
+    // Deshabilitar el bloque incorrecto que se intentó usar
+    const incorrectBlock = gameState.activeBlockIds.find(id => id !== "base");
+    if (incorrectBlock && !gameState.disabledBlockIds.includes(incorrectBlock)) {
+      gameState.disabledBlockIds.push(incorrectBlock);
+    }
+
+    // Deseleccionar el bloque incorrecto
+    gameState.activeBlockIds = ["base"];
+  }
+
   updateUI();
+  showModal(success, problem, actualOutput, totalCost);
 }
 
 function renderToolbox() {
@@ -362,26 +598,34 @@ function renderToolbox() {
 
   MEMORY_BLOCKS.forEach((block) => {
     const isActive = gameState.activeBlockIds.includes(block.id);
+    const isDisabled = gameState.disabledBlockIds.includes(block.id);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = `infra-btn ${isActive ? "selected" : ""}`;
     btn.style.borderLeft = `8px solid ${block.color}`;
 
+    // Si está deshabilitado, aplicar estilo visual
+    if (isDisabled) {
+      btn.style.opacity = "0.4";
+      btn.style.cursor = "not-allowed";
+    }
+
     btn.innerHTML = `
       <div style="font-weight: bold;">${block.name}</div>
       <div style="font-size: 0.8rem; opacity: 0.7;">${block.description}</div>
       <div style="margin-top: 5px; font-weight: bold;">Cost: ${block.cost} cr</div>
+      ${isDisabled ? '<div style="color: var(--marker-red); margin-top: 5px; font-size: 0.8rem;">✗ Incorrecto</div>' : ''}
     `;
 
-    btn.disabled = block.mandatory;
+    btn.disabled = block.mandatory || isDisabled;
 
     btn.addEventListener("click", () => {
       if (isActive) {
-        gameState.activeBlockIds = gameState.activeBlockIds.filter(
-          (id) => id !== block.id,
-        );
+        // Deseleccionar el bloque actual
+        gameState.activeBlockIds = gameState.activeBlockIds.filter(id => id !== block.id);
       } else {
-        gameState.activeBlockIds.push(block.id);
+        // Deseleccionar todos los bloques excepto 'base', luego agregar el nuevo
+        gameState.activeBlockIds = ["base", block.id];
       }
       updateUI();
     });
@@ -400,7 +644,7 @@ function roughLine(x1, y1, x2, y2, color = "#333", width = 2) {
   const segments = 10;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
-  for (let i = 1; i <= segments; i++) {
+  for(let i=1; i<=segments; i++) {
     const t = i / segments;
     const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
     const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
@@ -422,13 +666,12 @@ function roughCircle(cx, cy, r, fill = "transparent", stroke = "#333") {
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   const segments = 20;
-  for (let i = 0; i <= segments; i++) {
+  for(let i=0; i<=segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
     const jitter = (Math.random() - 0.5) * 3;
     const px = cx + (r + jitter) * Math.cos(angle);
     const py = cy + (r + jitter) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.stroke();
   ctx.restore();
@@ -456,11 +699,11 @@ function drawBoard() {
 
   // Nodo Central - GEMMA
   drawNode(centerX, midY, 65, "GEMMA", "#dcfce7");
-
+  
   // Nodo Input y Output siempre presentes
   drawNode(leftX, midY, 40, "USER", "#dbeafe");
   drawNode(rightX, midY, 40, "OUTPUT", "#fee2e2");
-
+  
   // Conexión básica
   roughLine(leftX + 40, midY, centerX - 65, midY);
   roughLine(centerX + 65, midY, rightX - 40, midY);
@@ -507,95 +750,248 @@ function syncCanvasResolution() {
   drawBoard();
 }
 
+function drawScenarioBoard(problem) {
+  const w = 900;
+  const h = 280;
+  scenarioCtx.clearRect(0, 0, w, h);
+
+  const midY = h / 2;
+  const leftX = 100;
+  const rightX = w - 100;
+  const centerX = w / 2;
+
+  // Nodo Central - GEMMA
+  drawNodeOnCanvas(scenarioCtx, centerX, midY, 55, "GEMMA", "#dcfce7");
+
+  // Nodo Input y Output
+  drawNodeOnCanvas(scenarioCtx, leftX, midY, 30, "USER", "#dbeafe");
+  drawNodeOnCanvas(scenarioCtx, rightX, midY, 30, "OUTPUT", "#fee2e2");
+
+  // Conexión básica
+  roughLineOnCanvas(scenarioCtx, leftX + 30, midY, centerX - 55, midY);
+  roughLineOnCanvas(scenarioCtx, centerX + 55, midY, rightX - 30, midY);
+
+  // Dibujar el bloque de memoria según el tipo
+  const memoryType = problem.memoryType;
+
+  if (memoryType === "Episodic") {
+    const ey = midY + 90;
+    drawNodeOnCanvas(scenarioCtx, centerX, ey, 40, "HISTORY", "#fef3c7");
+    roughLineOnCanvas(scenarioCtx, rightX - 10, midY + 30, centerX + 30, ey - 10);
+    roughLineOnCanvas(scenarioCtx, centerX - 30, ey - 10, leftX + 10, midY + 30);
+  } else if (memoryType === "Procedural") {
+    const py = midY - 90;
+    drawNodeOnCanvas(scenarioCtx, centerX, py, 40, "POLICIES", "#e0f2fe");
+    roughLineOnCanvas(scenarioCtx, centerX, py + 40, centerX, midY - 55);
+  } else if (memoryType === "External") {
+    const ex = centerX - 160;
+    const ey = midY - 70;
+    drawNodeOnCanvas(scenarioCtx, ex, ey, 40, "VECTOR DB", "#f3e8ff");
+    roughLineOnCanvas(scenarioCtx, leftX + 20, midY - 25, ex + 10, ey + 30);
+    roughLineOnCanvas(scenarioCtx, ex + 35, ey + 10, centerX - 40, midY - 35);
+  } else if (memoryType === "Semantic") {
+    const ex = centerX + 160;
+    const ey = midY - 70;
+    drawNodeOnCanvas(scenarioCtx, ex, ey, 40, "K-GRAPH", "#fff7ed");
+    roughLineOnCanvas(scenarioCtx, centerX + 40, midY - 35, ex - 35, ey + 10);
+    roughLineOnCanvas(scenarioCtx, ex - 10, ey + 30, rightX - 20, midY - 25);
+  }
+}
+
+function renderScenarioOptions(problem) {
+  scenarioOptionsDiv.innerHTML = "";
+
+  problem.options.forEach((option, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const isSelected = gameState.selectedScenarioIndex === index;
+    const isDisabled = gameState.disabledScenarioIndices.includes(index);
+
+    btn.className = `scenario-option-btn ${isSelected ? "selected" : ""} ${isDisabled ? "disabled-incorrect" : ""}`;
+    btn.textContent = option.text;
+    btn.disabled = isDisabled;
+
+    btn.addEventListener("click", () => selectScenarioOption(index));
+    scenarioOptionsDiv.appendChild(btn);
+  });
+}
+
+function drawValidationBoard(problem) {
+  const w = validationCanvas.clientWidth;
+  const h = 600;
+  validationCtx.clearRect(0, 0, w, h);
+
+  const midY = h / 2;
+  const leftX = 80;
+  const rightX = w - 80;
+  const centerX = w / 2;
+
+  // Nodo Central - GEMMA
+  drawNodeOnCanvas(validationCtx, centerX, midY, 65, "GEMMA", "#dcfce7");
+
+  // Nodo Input y Output
+  drawNodeOnCanvas(validationCtx, leftX, midY, 40, "USER", "#dbeafe");
+  drawNodeOnCanvas(validationCtx, rightX, midY, 40, "OUTPUT", "#fee2e2");
+
+  // Conexión básica
+  roughLineOnCanvas(validationCtx, leftX + 40, midY, centerX - 65, midY);
+  roughLineOnCanvas(validationCtx, centerX + 65, midY, rightX - 40, midY);
+
+  // Dibujar el bloque de memoria escogido
+  const chosenMemory = problem.chosenMemory;
+
+  if (chosenMemory.includes("Episodic")) {
+    const ey = midY + 120;
+    drawNodeOnCanvas(validationCtx, centerX, ey, 50, "HISTORY", "#fef3c7");
+    roughLineOnCanvas(validationCtx, rightX, midY + 40, centerX + 40, ey);
+    roughLineOnCanvas(validationCtx, centerX - 40, ey, leftX, midY + 40);
+  } else if (chosenMemory.includes("Procedural")) {
+    const py = midY - 120;
+    drawNodeOnCanvas(validationCtx, centerX, py, 50, "POLICIES", "#e0f2fe");
+    roughLineOnCanvas(validationCtx, centerX, py + 50, centerX, midY - 65);
+  } else if (chosenMemory.includes("External") || chosenMemory.includes("RAG")) {
+    const ex = centerX - 180;
+    const ey = midY - 100;
+    drawNodeOnCanvas(validationCtx, ex, ey, 50, "VECTOR DB", "#f3e8ff");
+    roughLineOnCanvas(validationCtx, leftX + 20, midY - 40, ex, ey + 40);
+    roughLineOnCanvas(validationCtx, ex + 40, ey, centerX - 40, midY - 50);
+  } else if (chosenMemory.includes("Semantic")) {
+    const ex = centerX + 180;
+    const ey = midY - 100;
+    drawNodeOnCanvas(validationCtx, ex, ey, 50, "K-GRAPH", "#fff7ed");
+    roughLineOnCanvas(validationCtx, centerX + 40, midY - 50, ex - 40, ey);
+    roughLineOnCanvas(validationCtx, ex, ey + 50, rightX - 20, midY - 40);
+  }
+}
+
+function roughLineOnCanvas(context, x1, y1, x2, y2, color = "#333", width = 2) {
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = width;
+  context.lineCap = "round";
+  const segments = 10;
+  context.beginPath();
+  context.moveTo(x1, y1);
+  for(let i=1; i<=segments; i++) {
+    const t = i / segments;
+    const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
+    const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
+    context.lineTo(nx, ny);
+  }
+  context.stroke();
+  context.restore();
+}
+
+function drawNodeOnCanvas(context, x, y, r, label, color) {
+  context.save();
+  if (color !== "transparent") {
+    context.fillStyle = color;
+    context.beginPath();
+    context.arc(x, y, r, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.strokeStyle = "#1e293b";
+  context.lineWidth = 2.5;
+  context.beginPath();
+  const segments = 20;
+  for(let i=0; i<=segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    const jitter = (Math.random() - 0.5) * 3;
+    const px = x + (r + jitter) * Math.cos(angle);
+    const py = y + (r + jitter) * Math.sin(angle);
+    if (i === 0) context.moveTo(px, py); else context.lineTo(px, py);
+  }
+  context.stroke();
+
+  context.fillStyle = "#1e293b";
+  context.font = "bold 13px 'Gochi Hand'";
+  context.textAlign = "center";
+  context.fillText(label, x, y + 5);
+  context.restore();
+}
+
 function updateUI() {
-  budgetValueEl.textContent = String(gameState.budget);
   spendValueEl.textContent = String(gameState.totalSpend);
+  spendValueValidation.textContent = String(gameState.totalSpend);
+  spendValueScenario.textContent = String(gameState.totalSpend);
 
   const problem = PROBLEMS[gameState.roundIndex];
-  ticketProblemTitleEl.innerHTML = `
-    <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [${problem.priority}]</div>
-    <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
-  `;
-  customerMessageEl.textContent = problem.details + " -> " + problem.question;
 
-  if (gameState.latestRun) {
-    expectedOutputEl.textContent = gameState.latestRun.expected;
-    actualOutputEl.textContent = gameState.latestRun.actual;
-    roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
-    roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
-    scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
-    scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
+  // Ocultar todos los paneles primero
+  const architectureElements = document.querySelectorAll(".architecture-only");
+  const validationElements = document.querySelectorAll(".validation-only");
+  const scenarioElements = document.querySelectorAll(".scenario-only");
+
+  architectureElements.forEach(el => el.style.display = "none");
+  validationElements.forEach(el => el.style.display = "none");
+  scenarioElements.forEach(el => el.style.display = "none");
+
+  // Mostrar UI según el tipo de ticket
+  if (problem.type === "scenario-selection") {
+    // Cambiar layout a modo scenario
+    stageEl.className = "scenario-mode";
+    scenarioSelectionPanel.style.display = "block";
+
+    ticketProblemTitleScenario.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 0.95rem;">Ticket #${problem.id}</div>
+      <div style="font-size: 1.5rem; font-family: var(--font-accent); color: var(--marker-blue); margin-top: 5px;">${problem.title}</div>
+    `;
+
+    // Dibujar el grafo y renderizar opciones
+    drawScenarioBoard(problem);
+    renderScenarioOptions(problem);
+
+  } else if (problem.type === "validation") {
+    // Cambiar layout a modo validation
+    stageEl.className = "validation-mode";
+    validationLeftPanel.style.display = "block";
+    validationRightPanel.style.display = "block";
+
+    ticketProblemTitleValidation.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id} [Validation]</div>
+      <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
+    `;
+    customerMessageValidation.textContent = problem.scenario;
+    chosenMemoryElValidation.textContent = problem.chosenMemory;
+
+    // Dibujar el grafo de validación
+    drawValidationBoard(problem);
+
   } else {
-    expectedOutputEl.textContent = "-";
-    actualOutputEl.textContent = "-";
-    roundStatusEl.textContent = "Waiting...";
-    scoreQualityEl.style.width = "0%";
-    scoreMemoryEl.style.width = "0%";
+    // Modo architecture (original)
+    stageEl.className = "";
+    architectureElements.forEach(el => el.style.display = "block");
+
+    ticketProblemTitleEl.innerHTML = `
+      <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id}</div>
+      <div style="font-size: 1.3rem; font-family: var(--font-accent);">${problem.title}</div>
+    `;
+    customerMessageEl.textContent = problem.details + " -> " + problem.question;
   }
 
-  renderToolbox();
-  updateLogView();
-  drawBoard();
-}
-
-function updateLogView() {
-  turnLogEl.innerHTML = "";
-  gameState.logs
-    .slice()
-    .reverse()
-    .forEach((entry) => {
-      const li = document.createElement("li");
-      li.textContent = entry;
-      turnLogEl.appendChild(li);
-    });
-}
-
-function buildAttemptPayload() {
-  return {
-    username: getPlayerName(),
-    modeId: gameState.modeId || getModeId(),
-    solved: gameState.solved,
-    roundsTotal: PROBLEMS.length,
-    totalSpend: gameState.totalSpend,
-    budgetRemaining: gameState.budget,
-    clientTs: new Date().toISOString(),
-  };
-}
-
-async function submitAttempt(options = {}) {
-  const username = getPlayerName();
-  if (!username) return;
-
-  try {
-    const resp = await fetch("/api/attempts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildAttemptPayload()),
-    });
-
-    const data = await resp.json().catch(() => null);
-
-    if (!resp.ok) {
-      if (!options.silent) {
-        addLog("⚠️ No se pudo enviar el resultado al servidor.");
-        updateUI();
-      }
-      return;
+  // Solo actualizar stats si es tipo architecture
+  if (problem.type === "architecture") {
+    if (gameState.latestRun) {
+      expectedOutputEl.textContent = gameState.latestRun.expected;
+      actualOutputEl.textContent = gameState.latestRun.actual;
+      roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
+      roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
+      scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
+      scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
+    } else {
+      expectedOutputEl.textContent = "-";
+      actualOutputEl.textContent = "-";
+      roundStatusEl.textContent = "Waiting...";
+      scoreQualityEl.style.width = "0%";
+      scoreMemoryEl.style.width = "0%";
     }
 
-    gameState.lastSubmittedAttemptId = data?.id || null;
-  } catch (_err) {
-    if (!options.silent) {
-      addLog("⚠️ Servidor no disponible para enviar el resultado.");
-      updateUI();
-    }
+    renderToolbox();
+    drawBoard();
   }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  initRegisterName();
-  setWelcomeStatus("", "");
-  setModeBadge();
-  // No iniciar el juego hasta que el usuario se registre.
-  welcomeOverlayEl.classList.remove("hidden");
+  resetGame();
+  syncCanvasResolution();
 });
