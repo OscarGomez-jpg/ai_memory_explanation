@@ -10,8 +10,93 @@ function setUserStatus(text, kind) {
   el.className = `status-pill${kind ? ` ${kind}` : ""}`;
 }
 
-async function refreshAdminLeaderboard() {
-  setAdminStatus("Cargando...", "");
+function setGameControlStatus(text, kind) {
+  const el = document.getElementById("game-control-status");
+  el.textContent = text;
+  el.className = `status-pill${kind ? ` ${kind}` : ""}`;
+}
+
+function getPartLabel(part) {
+  if (part === 1) return "Parte 1 (arquitectura)";
+  if (part === 2) return "Parte 2 (validación)";
+  if (part === 3) return "Parte 3 (escenarios)";
+  return `Parte ${part}`;
+}
+
+let lastGameControl = { paused: false, unlockedPart: 3 };
+let leaderboardAutoRefreshId = null;
+
+async function refreshGameControl() {
+  setGameControlStatus("Cargando...", "");
+  try {
+    const resp = await fetch("/api/game-control", { method: "GET" });
+    const data = await resp.json();
+    if (!resp.ok || !data || typeof data !== "object") {
+      setGameControlStatus("No se pudo cargar.", "fail");
+      return;
+    }
+
+    const paused = Boolean(data.paused);
+    const unlockedPart = Number(data.unlockedPart) || 3;
+    lastGameControl = { paused, unlockedPart };
+
+    const toggleBtn = document.getElementById("toggle-pause");
+    toggleBtn.textContent = paused ? "Reanudar" : "Pausar";
+
+    setGameControlStatus(
+      `${paused ? "Pausado" : "En curso"}. Desbloqueado: ${getPartLabel(unlockedPart)}.`,
+      paused ? "warn" : "ok",
+    );
+  } catch (_err) {
+    setGameControlStatus("Servidor no disponible.", "fail");
+  }
+}
+
+async function updateGameControl(patch) {
+  setGameControlStatus("Guardando...", "");
+  try {
+    const resp = await fetch("/api/game-control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data || data.ok !== true) {
+      setGameControlStatus("No se pudo guardar.", "fail");
+      return;
+    }
+    await refreshGameControl();
+  } catch (_err) {
+    setGameControlStatus("Servidor no disponible.", "fail");
+  }
+}
+
+function getStageBadgeClass(part) {
+  if (part === 1) return "part1";
+  if (part === 2) return "part2";
+  if (part === 3) return "part3";
+  return "";
+}
+
+function getStageLabel(item) {
+  const part = Number(item.stagePart);
+  if (item.isFinished) return "Finalizó";
+  if (part === 1) return "Parte 1";
+  if (part === 2) return "Parte 2";
+  if (part === 3) return "Parte 3";
+  return "Parte";
+}
+
+function getTicketLabel(item) {
+  const idx = Number(item.stageIndex);
+  const total = Number(item.roundsTotal);
+  if (!Number.isFinite(idx) || idx < 0 || !Number.isFinite(total) || total <= 0)
+    return "";
+  return `Ticket ${idx + 1}/${total}`;
+}
+
+async function refreshAdminLeaderboard({ silent } = { silent: false }) {
+  if (!silent) setAdminStatus("Cargando...", "");
 
   try {
     const resp = await fetch(`/api/leaderboard?limit=50`, {
@@ -37,9 +122,46 @@ async function refreshAdminLeaderboard() {
 
     data.items.forEach((item, index) => {
       const li = document.createElement("li");
+      li.className = "leaderboard-item";
       li.dataset.username = item.username;
       li.style.cursor = "pointer";
-      li.textContent = `${index + 1}. ${item.username} — ${item.solved}/${item.roundsTotal} tickets, spend ${item.totalSpend} cr`;
+
+      const part = Number(item.stagePart) || 1;
+      const waiting =
+        lastGameControl.paused || part > lastGameControl.unlockedPart;
+      const stageLabel = getStageLabel(item);
+      const ticketLabel = getTicketLabel(item);
+
+      const badges = [];
+      if (item.isFinished) {
+        badges.push('<span class="lb-badge done">Finalizó</span>');
+      } else {
+        badges.push(
+          `<span class="lb-badge ${getStageBadgeClass(part)}">${stageLabel}</span>`,
+        );
+      }
+      if (ticketLabel) {
+        badges.push(`<span class="lb-badge">${ticketLabel}</span>`);
+      }
+      if (lastGameControl.paused) {
+        badges.push('<span class="lb-badge paused">Pausado</span>');
+      } else if (waiting && !item.isFinished) {
+        badges.push('<span class="lb-badge waiting">Esperando</span>');
+      }
+
+      li.innerHTML = `
+        <div class="lb-rank">${index + 1}</div>
+        <div class="lb-body">
+          <div class="lb-top">
+            <div class="lb-name">${item.username}</div>
+            <div class="lb-badges">${badges.join(" ")}</div>
+          </div>
+          <div class="lb-meta">
+            <span><strong>${item.solved}</strong>/${item.roundsTotal} tickets</span>
+            <span>· spend <strong>${item.totalSpend}</strong> cr</span>
+          </div>
+        </div>
+      `;
       li.addEventListener("click", () => {
         const input = document.getElementById("admin-user");
         input.value = item.username;
@@ -48,7 +170,7 @@ async function refreshAdminLeaderboard() {
       list.appendChild(li);
     });
 
-    setAdminStatus("Actualizado.", "ok");
+    if (!silent) setAdminStatus("Actualizado.", "ok");
   } catch (_err) {
     setAdminStatus("Servidor no disponible.", "fail");
   }
@@ -111,6 +233,33 @@ window.addEventListener("DOMContentLoaded", () => {
   setUserStatus("", "");
 
   document
+    .getElementById("game-control-refresh")
+    .addEventListener("click", () => void refreshGameControl());
+
+  document
+    .getElementById("unlock-part-1")
+    .addEventListener(
+      "click",
+      () => void updateGameControl({ unlockedPart: 1 }),
+    );
+  document
+    .getElementById("unlock-part-2")
+    .addEventListener(
+      "click",
+      () => void updateGameControl({ unlockedPart: 2 }),
+    );
+  document
+    .getElementById("unlock-part-3")
+    .addEventListener(
+      "click",
+      () => void updateGameControl({ unlockedPart: 3 }),
+    );
+
+  document.getElementById("toggle-pause").addEventListener("click", () => {
+    void updateGameControl({ paused: !lastGameControl.paused });
+  });
+
+  document
     .getElementById("admin-refresh")
     .addEventListener("click", () => void refreshAdminLeaderboard());
 
@@ -123,4 +272,13 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   refreshAdminLeaderboard();
+  refreshGameControl();
+
+  if (leaderboardAutoRefreshId) {
+    window.clearInterval(leaderboardAutoRefreshId);
+  }
+  leaderboardAutoRefreshId = window.setInterval(
+    () => void refreshAdminLeaderboard({ silent: true }),
+    2000,
+  );
 });

@@ -20,28 +20,44 @@
     <p id="level-description">Vista del servidor: puntaje actual por jugador.</p>
 
     <section id="leaderboard-card">
-      <h2>Leaderboard</h2>
-      <p class="leaderboard-hint">Ordenado por tickets resueltos y, en empate, menor gasto.</p>
+      <h2>Control del juego</h2>
+      <p class="leaderboard-hint">Control global: pausa y desbloqueo de partes.</p>
 
       <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
-        <div id="admin-status" class="status-pill" aria-live="polite"></div>
-        <button type="button" id="admin-refresh">Actualizar</button>
+        <div id="game-control-status" class="status-pill" aria-live="polite"></div>
+        <button type="button" id="game-control-refresh">Actualizar</button>
       </div>
-      <ol id="leaderboard-list"></ol>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+        <button type="button" id="unlock-part-1">Desbloquear parte 1</button>
+        <button type="button" id="unlock-part-2">Desbloquear parte 2</button>
+        <button type="button" id="unlock-part-3">Desbloquear parte 3</button>
+        <button type="button" id="toggle-pause">Pausar</button>
+      </div>
 
       <div style="margin-top: 14px; border-top: 1px dashed #94a3b8; padding-top: 12px;">
-        <h2>Resultados</h2>
-        <p class="leaderboard-hint">Historial del jugador.</p>
+        <h2>Leaderboard</h2>
+        <p class="leaderboard-hint">Ordenado por tickets resueltos y, en empate, menor gasto.</p>
 
         <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
-          <input id="admin-user" type="text" maxlength="24" placeholder="Nombre del jugador"
-            style="font-family: var(--font-main); font-size: 1.1rem; padding: 10px 12px; border: 2px solid #333; border-radius: 10px; background: white;" />
-          <button type="button" id="admin-user-fetch">Ver</button>
+          <div id="admin-status" class="status-pill" aria-live="polite"></div>
+          <button type="button" id="admin-refresh">Actualizar</button>
         </div>
+        <ol id="leaderboard-list"></ol>
 
-        <div id="admin-user-status" class="status-pill" aria-live="polite"></div>
-        <ol id="admin-user-attempts"></ol>
-      </div>
+        <div style="margin-top: 14px; border-top: 1px dashed #94a3b8; padding-top: 12px;">
+          <h2>Resultados</h2>
+          <p class="leaderboard-hint">Historial del jugador.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
+            <input id="admin-user" type="text" maxlength="24" placeholder="Nombre del jugador"
+              style="font-family: var(--font-main); font-size: 1.1rem; padding: 10px 12px; border: 2px solid #333; border-radius: 10px; background: white;" />
+            <button type="button" id="admin-user-fetch">Ver</button>
+          </div>
+
+          <div id="admin-user-status" class="status-pill" aria-live="polite"></div>
+          <ol id="admin-user-attempts"></ol>
+        </div>
     </section>
   </div>
 

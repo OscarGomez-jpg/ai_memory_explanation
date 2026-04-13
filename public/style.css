@@ -152,6 +152,124 @@ h1 {
   font-family: var(--font-hand);
 }
 
+/* Admin leaderboard */
+.leaderboard-hint {
+  margin: 6px 0 0 0;
+  font-size: 1.05rem;
+}
+
+#leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.leaderboard-item {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: var(--paper);
+  border: 2px solid #333;
+  border-radius: 10px 18px 10px 18px / 18px 10px 18px 10px;
+  padding: 12px;
+  box-shadow: 6px 6px 0 #333;
+  transition: transform 0.12s;
+}
+
+.leaderboard-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 7px 7px 0 #333;
+}
+
+.lb-rank {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 2px solid #333;
+  display: grid;
+  place-items: center;
+  background: var(--sticky-blue);
+  font-family: var(--font-accent);
+  font-size: 1.4rem;
+  color: var(--marker-blue);
+}
+
+.lb-body {
+  min-width: 0;
+}
+
+.lb-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lb-name {
+  font-family: var(--font-accent);
+  font-size: 1.55rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.lb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 2px solid #333;
+  border-radius: 999px;
+  font-family: var(--font-hand);
+  font-size: 1rem;
+  background: #fff;
+}
+
+.lb-badge.part1 {
+  background: var(--sticky-blue);
+}
+
+.lb-badge.part2 {
+  background: var(--sticky-yellow);
+}
+
+.lb-badge.part3 {
+  background: var(--sticky-pink);
+}
+
+.lb-badge.waiting {
+  background: var(--sticky-yellow);
+  color: var(--marker-red);
+}
+
+.lb-badge.paused {
+  background: var(--sticky-pink);
+  color: var(--marker-red);
+}
+
+.lb-badge.done {
+  background: var(--marker-green);
+  color: white;
+}
+
+.lb-meta {
+  margin-top: 6px;
+  font-family: var(--font-main);
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
 #stage {
   display: grid;
   grid-template-columns: 320px 1fr 300px;

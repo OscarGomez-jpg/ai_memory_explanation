@@ -286,6 +286,108 @@ const ticketProblemTitleScenario = document.getElementById(
 const spendValueScenario = document.getElementById("spend-value-scenario");
 const runScenarioBtn = document.getElementById("run-scenario");
 
+// ====== SERVER GAME CONTROL (admin) ======
+const gameControlState = {
+  paused: false,
+  unlockedPart: 3,
+  loaded: false,
+};
+
+function getPartForProblem(problem) {
+  if (!problem || !problem.type) return 1;
+  if (problem.type === "architecture") return 1;
+  if (problem.type === "validation") return 2;
+  if (problem.type === "scenario-selection") return 3;
+  return 1;
+}
+
+function getPartLabel(part) {
+  if (part === 1) return "Parte 1";
+  if (part === 2) return "Parte 2";
+  if (part === 3) return "Parte 3";
+  return `Parte ${part}`;
+}
+
+function applyPauseToStage() {
+  stageEl.style.pointerEvents = gameControlState.paused ? "none" : "";
+}
+
+function getEffectiveProblemForGate() {
+  const currentProblem = PROBLEMS[gameState.roundIndex];
+  if (
+    gameState.currentProblemSolved &&
+    gameState.roundIndex < PROBLEMS.length - 1
+  ) {
+    return PROBLEMS[gameState.roundIndex + 1];
+  }
+  return currentProblem;
+}
+
+function getEffectiveRoundIndexForGate() {
+  if (
+    gameState.currentProblemSolved &&
+    gameState.roundIndex < PROBLEMS.length - 1
+  ) {
+    return gameState.roundIndex + 1;
+  }
+  return gameState.roundIndex;
+}
+
+function showAdminBlockModal(title, message) {
+  const modalContent = document.querySelector(".modal-content");
+  modalContent.className = "modal-content";
+  modalTitle.textContent = title;
+  modalMessage.textContent = message;
+  modalDetails.innerHTML = "";
+  modalCloseBtn.textContent = "Reintentar";
+  modalCloseBtn.disabled = false;
+  modalOverlay.dataset.kind = "admin-block";
+  modalOverlay.style.display = "flex";
+}
+
+function hideAdminBlockModalIfOpen() {
+  if (modalOverlay.dataset.kind === "admin-block") {
+    modalOverlay.style.display = "none";
+    delete modalOverlay.dataset.kind;
+  }
+}
+
+async function refreshGameControl() {
+  try {
+    const resp = await fetch("/api/game-control", { method: "GET" });
+    const data = await resp.json();
+    if (!resp.ok || !data || typeof data !== "object") return;
+
+    gameControlState.paused = Boolean(data.paused);
+    gameControlState.unlockedPart = Number(data.unlockedPart) || 3;
+    gameControlState.loaded = true;
+    applyPauseToStage();
+
+    const effectiveProblem = getEffectiveProblemForGate();
+    const effectivePart = getPartForProblem(effectiveProblem);
+
+    if (gameControlState.paused) {
+      showAdminBlockModal(
+        "Juego pausado",
+        "El admin pausó el juego. Espera a que lo reanuden.",
+      );
+      return;
+    }
+
+    if (effectivePart > gameControlState.unlockedPart) {
+      showAdminBlockModal(
+        "Parte bloqueada",
+        `El admin aún no habilita ${getPartLabel(effectivePart)}.`,
+      );
+      return;
+    }
+
+    hideAdminBlockModalIfOpen();
+  } catch (_err) {
+    // If server is unreachable, don't hard-block the local UI.
+  }
+}
+
 runRoundBtn.addEventListener("click", runCurrentRound);
 runScenarioBtn.addEventListener("click", runScenarioRound);
 modalCloseBtn.addEventListener("click", closeModal);
@@ -324,6 +426,9 @@ function goToNextProblem() {
     gameState.disabledScenarioIndices = [];
   }
   updateUI();
+
+  // Snapshot after advancing so the admin sees progress in real time.
+  void submitAttempt();
 }
 
 function showModal(success, problem, actualOutput, cost) {
@@ -372,6 +477,35 @@ function showWarningModal() {
 }
 
 function closeModal() {
+  if (modalOverlay.dataset.kind === "admin-block") {
+    void refreshGameControl();
+    return;
+  }
+
+  if (gameControlState.paused) {
+    showAdminBlockModal(
+      "Juego pausado",
+      "El admin pausó el juego. Espera a que lo reanuden.",
+    );
+    return;
+  }
+
+  // Block advancing to locked parts.
+  if (
+    gameState.currentProblemSolved &&
+    gameState.roundIndex < PROBLEMS.length - 1
+  ) {
+    const nextProblem = PROBLEMS[gameState.roundIndex + 1];
+    const nextPart = getPartForProblem(nextProblem);
+    if (nextPart > gameControlState.unlockedPart) {
+      showAdminBlockModal(
+        "Esperando al admin",
+        `Para continuar, el admin debe habilitar ${getPartLabel(nextPart)}.`,
+      );
+      return;
+    }
+  }
+
   modalOverlay.style.display = "none";
 
   if (gameState.currentProblemSolved) {
@@ -387,6 +521,11 @@ function closeModal() {
 async function showFinalScreen() {
   // Enviar datos al servidor
   await submitAttempt();
+
+  if (progressHeartbeatId) {
+    window.clearInterval(progressHeartbeatId);
+    progressHeartbeatId = null;
+  }
 
   // Ocultar todo el stage
   stageEl.style.display = "none";
@@ -1097,6 +1236,8 @@ const startGameBtn = document.getElementById("start-game");
 const welcomeStatus = document.getElementById("welcome-status");
 
 let currentPlayer = null;
+let progressHeartbeatId = null;
+let submitInFlight = false;
 
 startGameBtn.addEventListener("click", handleStartGame);
 
@@ -1116,6 +1257,13 @@ function handleStartGame() {
 
   resetGame();
   syncCanvasResolution();
+
+  // Initial snapshot + heartbeat for real-time leaderboard.
+  void submitAttempt();
+  if (progressHeartbeatId) {
+    window.clearInterval(progressHeartbeatId);
+  }
+  progressHeartbeatId = window.setInterval(() => void submitAttempt(), 3000);
 }
 
 function showWelcomeStatus(message, type = "info") {
@@ -1130,18 +1278,36 @@ function showWelcomeStatus(message, type = "info") {
 
 async function submitAttempt() {
   if (!currentPlayer) return;
+  if (gameControlState.paused) return;
+  if (submitInFlight) return;
+
+  const effectiveProblem = getEffectiveProblemForGate();
+  const effectiveRoundIndex = getEffectiveRoundIndexForGate();
+  const stageType =
+    effectiveProblem && effectiveProblem.type
+      ? effectiveProblem.type
+      : "architecture";
+  const stagePart = getPartForProblem(effectiveProblem);
+  const isFinished =
+    gameState.roundIndex >= PROBLEMS.length - 1 &&
+    gameState.currentProblemSolved;
 
   const attemptData = {
     username: currentPlayer.username,
     solved: gameState.solved,
     solvedFirstTry: gameState.solvedFirstTry,
     roundsTotal: PROBLEMS.length,
+    stagePart,
+    stageType,
+    stageIndex: effectiveRoundIndex,
+    isFinished,
     totalSpend: gameState.totalSpend,
     budgetRemaining: 0,
     clientTs: new Date().toISOString(),
   };
 
   try {
+    submitInFlight = true;
     const response = await fetch("/api/attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1153,6 +1319,8 @@ async function submitAttempt() {
     }
   } catch (error) {
     console.error("Error submitting attempt:", error);
+  } finally {
+    submitInFlight = false;
   }
 }
 
@@ -1160,4 +1328,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Iniciar con el overlay visible
   welcomeOverlay.style.display = "flex";
   document.getElementById("stage").style.display = "none";
+
+  void refreshGameControl();
+  window.setInterval(() => void refreshGameControl(), 2000);
 });

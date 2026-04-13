@@ -37,6 +37,10 @@ async function writeJsonFileAtomic(filePath, value) {
 
 const store = {
   attempts: [],
+  gameControl: {
+    paused: false,
+    unlockedPart: 3,
+  },
   loaded: false,
   writeInFlight: Promise.resolve(),
 };
@@ -57,25 +61,77 @@ async function ensureStoreLoaded() {
         // This project no longer uses multiple modes.
         const modeId = "memory-architect";
 
+        const stagePart =
+          Number.isInteger(a.stagePart) && a.stagePart >= 1 && a.stagePart <= 3
+            ? a.stagePart
+            : 1;
+        const stageType =
+          a.stageType === "architecture" ||
+          a.stageType === "validation" ||
+          a.stageType === "scenario-selection"
+            ? a.stageType
+            : "architecture";
+        const stageIndex =
+          Number.isInteger(a.stageIndex) && a.stageIndex >= 0
+            ? a.stageIndex
+            : 0;
+        const isFinished =
+          typeof a.isFinished === "boolean" ? a.isFinished : false;
+
         return {
           ...a,
           username,
           usernameKey,
           modeId,
+          stagePart,
+          stageType,
+          stageIndex,
+          isFinished,
         };
       });
   }
+
+  if (data && data.gameControl && typeof data.gameControl === "object") {
+    const paused = data.gameControl.paused;
+    const unlockedPart = data.gameControl.unlockedPart;
+    store.gameControl = {
+      paused: typeof paused === "boolean" ? paused : false,
+      unlockedPart:
+        Number.isInteger(unlockedPart) && unlockedPart >= 1 && unlockedPart <= 3
+          ? unlockedPart
+          : 3,
+    };
+  }
+
   store.loaded = true;
 }
 
 function queuePersist() {
   store.writeInFlight = store.writeInFlight
-    .then(() => writeJsonFileAtomic(DATA_PATH, { attempts: store.attempts }))
+    .then(() =>
+      writeJsonFileAtomic(DATA_PATH, {
+        attempts: store.attempts,
+        gameControl: store.gameControl,
+      }),
+    )
     .catch((err) => {
       console.error("Failed to persist data:", err);
     });
   return store.writeInFlight;
 }
+
+const gameControlUpdateSchema = z
+  .object({
+    paused: z.boolean().optional(),
+    unlockedPart: z.number().int().min(1).max(3).optional(),
+  })
+  .strict()
+  .refine(
+    (v) => typeof v.paused === "boolean" || typeof v.unlockedPart === "number",
+    {
+      message: "At least one field is required",
+    },
+  );
 
 const app = express();
 app.disable("x-powered-by");
@@ -157,6 +213,16 @@ const attemptSchema = z
     solved: z.number().int().min(0).max(999),
     solvedFirstTry: z.number().int().min(0).max(999).optional(),
     roundsTotal: z.number().int().min(1).max(999),
+    stagePart: z.number().int().min(1).max(3).optional(),
+    stageType: z
+      .string()
+      .trim()
+      .min(1)
+      .max(32)
+      .regex(/^(architecture|validation|scenario-selection)$/u)
+      .optional(),
+    stageIndex: z.number().int().min(0).max(999).optional(),
+    isFinished: z.boolean().optional(),
     totalSpend: z.number().int().min(0).max(1_000_000),
     budgetRemaining: z.number().int().min(-1_000_000).max(1_000_000),
     clientTs: z.string().trim().min(1).max(64),
@@ -165,6 +231,36 @@ const attemptSchema = z
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/game-control", async (_req, res) => {
+  await ensureStoreLoaded();
+  res.json(store.gameControl);
+});
+
+app.post("/api/game-control", rateLimit, async (req, res) => {
+  await ensureStoreLoaded();
+
+  const parsed = gameControlUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res
+      .status(400)
+      .json({ error: "Invalid payload", details: parsed.error.flatten() });
+    return;
+  }
+
+  const { paused, unlockedPart } = parsed.data;
+
+  if (typeof paused === "boolean") {
+    store.gameControl.paused = paused;
+  }
+  if (typeof unlockedPart === "number") {
+    store.gameControl.unlockedPart = unlockedPart;
+  }
+
+  await queuePersist();
+
+  res.json({ ok: true, gameControl: store.gameControl });
 });
 
 app.post("/api/attempts", rateLimit, async (req, res) => {
@@ -184,6 +280,10 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
     solved,
     solvedFirstTry,
     roundsTotal,
+    stagePart,
+    stageType,
+    stageIndex,
+    isFinished,
     totalSpend,
     budgetRemaining,
     clientTs,
@@ -200,6 +300,10 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
     solved,
     solvedFirstTry: typeof solvedFirstTry === "number" ? solvedFirstTry : 0,
     roundsTotal,
+    stagePart: typeof stagePart === "number" ? stagePart : 1,
+    stageType: typeof stageType === "string" ? stageType : "architecture",
+    stageIndex: typeof stageIndex === "number" ? stageIndex : 0,
+    isFinished: typeof isFinished === "boolean" ? isFinished : false,
     totalSpend,
     budgetRemaining,
     clientTs,
@@ -250,6 +354,10 @@ app.get("/api/leaderboard", async (req, res) => {
       username: a.username,
       solved: a.solved,
       roundsTotal: a.roundsTotal,
+      stagePart: a.stagePart,
+      stageType: a.stageType,
+      stageIndex: a.stageIndex,
+      isFinished: a.isFinished,
       totalSpend: a.totalSpend,
       budgetRemaining: a.budgetRemaining,
       createdAt: a.createdAt,
@@ -291,6 +399,10 @@ app.get("/api/user-attempts", async (req, res) => {
       modeId: a.modeId || "memory-architect",
       solved: a.solved,
       roundsTotal: a.roundsTotal,
+      stagePart: a.stagePart,
+      stageType: a.stageType,
+      stageIndex: a.stageIndex,
+      isFinished: a.isFinished,
       totalSpend: a.totalSpend,
       budgetRemaining: a.budgetRemaining,
       createdAt: a.createdAt,
