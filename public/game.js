@@ -303,6 +303,23 @@ let handledStageStartedAt = null;
 let pendingLockedPart = null;
 let gameEnded = false;
 
+let stageFreezeAccumulatedMs = 0;
+let stageFreezeStartedAtMs = null;
+let lastStageStartedAtIso = null;
+
+let validationAnswerLocked = false;
+
+function freezeStageCountdown() {
+  if (stageFreezeStartedAtMs !== null) return;
+  stageFreezeStartedAtMs = Date.now();
+}
+
+function resumeStageCountdown() {
+  if (stageFreezeStartedAtMs === null) return;
+  stageFreezeAccumulatedMs += Date.now() - stageFreezeStartedAtMs;
+  stageFreezeStartedAtMs = null;
+}
+
 const PART_START_INDEX = (() => {
   const idx1 = 0;
   const idx2 = PROBLEMS.findIndex((p) => p && p.type === "validation");
@@ -338,6 +355,7 @@ function showStageTimer() {
 }
 
 function hardCloseModalOverlay() {
+  resumeStageCountdown();
   modalOverlay.style.display = "none";
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
@@ -352,6 +370,10 @@ function resetPerProblemState() {
   gameState.disabledBlockIds = [];
   gameState.selectedScenarioIndex = null;
   gameState.disabledScenarioIndices = [];
+
+  validationAnswerLocked = false;
+  answerYesBtnValidation.disabled = false;
+  answerNoBtnValidation.disabled = false;
 }
 
 function moveToPartStart(part) {
@@ -479,7 +501,10 @@ function updateStageTimerUI() {
     return;
   }
 
-  const elapsed = Date.now() - startedAt;
+  const frozenNow = stageFreezeStartedAtMs
+    ? Date.now() - stageFreezeStartedAtMs
+    : 0;
+  const elapsed = Date.now() - startedAt - stageFreezeAccumulatedMs - frozenNow;
   const remaining = STAGE_DURATION_MS - elapsed;
   const label = `Etapa ${stagePart} — Tiempo: ${formatCountdown(remaining)}`;
   setStageTimerText(label, remaining <= 10_000 ? "warn" : "ok");
@@ -566,6 +591,13 @@ async function refreshGameControl() {
       typeof data.stageStartedAt === "string" && data.stageStartedAt.length > 0
         ? data.stageStartedAt
         : null;
+
+    if (gameControlState.stageStartedAt !== lastStageStartedAtIso) {
+      lastStageStartedAtIso = gameControlState.stageStartedAt;
+      handledStageStartedAt = null;
+      stageFreezeAccumulatedMs = 0;
+      stageFreezeStartedAtMs = null;
+    }
     gameControlState.status =
       data.status === "idle" ||
       data.status === "lobby" ||
@@ -719,6 +751,7 @@ function showModal(success, problem, actualOutput, cost) {
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
   }
+  freezeStageCountdown();
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -754,6 +787,7 @@ function showWarningModal() {
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
   }
+  freezeStageCountdown();
   modalContent.className = "modal-content modal-failure";
   modalTitle.textContent = "Atención";
   modalMessage.textContent =
@@ -803,6 +837,7 @@ function closeModal() {
   }
 
   modalOverlay.style.display = "none";
+  resumeStageCountdown();
 
   if (gameState.currentProblemSolved) {
     if (gameState.roundIndex < PROBLEMS.length - 1) {
@@ -945,6 +980,7 @@ function showScenarioResultModal(success, problem, selectedText, cost) {
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
   }
+  freezeStageCountdown();
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -976,6 +1012,11 @@ function showScenarioResultModal(success, problem, selectedText, cost) {
 }
 
 function handleValidationAnswer(userAnsweredYes) {
+  if (validationAnswerLocked) return;
+  validationAnswerLocked = true;
+  answerYesBtnValidation.disabled = true;
+  answerNoBtnValidation.disabled = true;
+
   const problem = PROBLEMS[gameState.roundIndex];
 
   // Verificar si la respuesta es correcta
@@ -1009,6 +1050,7 @@ function showValidationResultModal(success, problem, cost) {
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
   }
+  freezeStageCountdown();
 
   if (success) {
     modalContent.className = "modal-content modal-success";
