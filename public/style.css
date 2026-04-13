@@ -8,9 +8,9 @@
   --sticky-blue: #bae6fd;
   --sticky-pink: #fbcfe8;
   --desk: #e2e8f0;
-  --font-main: 'Patrick Hand', cursive;
-  --font-accent: 'Architects Daughter', cursive;
-  --font-hand: 'Gochi Hand', cursive;
+  --font-main: "Patrick Hand", cursive;
+  --font-accent: "Architects Daughter", cursive;
+  --font-hand: "Gochi Hand", cursive;
 }
 
 * {
@@ -24,8 +24,7 @@ body {
   font-size: 1.1rem;
   color: var(--ink);
   background-color: var(--desk);
-  background-image: 
-    radial-gradient(#94a3b8 1px, transparent 1px);
+  background-image: radial-gradient(#94a3b8 1px, transparent 1px);
   background-size: 20px 20px;
   padding: 20px;
 }
@@ -41,7 +40,9 @@ body {
   position: relative;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-family: var(--font-accent);
   margin: 0;
   line-height: 1.2;
@@ -66,6 +67,89 @@ h1 {
   text-align: center;
   margin-bottom: 2rem;
   font-size: 1.2rem;
+}
+
+/* Registration overlay */
+.hidden {
+  display: none !important;
+}
+
+#welcome-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--paper);
+  border: 3px solid #333;
+  border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px;
+  padding: 22px;
+  box-shadow: 12px 12px 0px rgba(0, 0, 0, 0.15);
+}
+
+.welcome-card h2 {
+  font-size: 2.2rem;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.welcome-hint {
+  text-align: center;
+  margin: 0 0 12px 0;
+  font-size: 1.15rem;
+}
+
+.player-field {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.player-field > span {
+  font-family: var(--font-hand);
+  color: var(--marker-blue);
+  font-size: 1.1rem;
+}
+
+.player-field input,
+.player-field select {
+  font-family: var(--font-main);
+  font-size: 1.1rem;
+  padding: 10px 12px;
+  border: 2px solid #333;
+  border-radius: 10px;
+  background: white;
+}
+
+.welcome-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+#start-game {
+  min-width: 160px;
+  background: var(--marker-blue);
+  color: white;
+}
+
+.status-pill {
+  margin-top: 12px;
+  min-height: 20px;
+  padding: 8px 10px;
+  border: 2px dashed #333;
+  border-radius: 999px;
+  background: #f8fafc;
+  font-family: var(--font-hand);
 }
 
 #stage {
@@ -104,7 +188,7 @@ section {
   background: white;
   border-radius: 8px;
   padding: 10px;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
 #right-panel {
@@ -118,7 +202,7 @@ section {
   padding: 15px;
   margin-bottom: 20px;
   border-radius: 2px 2px 2px 2px / 8px 8px 8px 8px;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 #budget-card h2 {
@@ -161,11 +245,21 @@ section {
   box-shadow: 1px 1px 0 #333;
 }
 
-.infra-a { background-color: #fca5a5; }
-.infra-b { background-color: #fdba74; }
-.infra-c { background-color: #86efac; }
-.infra-d { background-color: #93c5fd; }
-.infra-e { background-color: #c4b5fd; }
+.infra-a {
+  background-color: #fca5a5;
+}
+.infra-b {
+  background-color: #fdba74;
+}
+.infra-c {
+  background-color: #86efac;
+}
+.infra-d {
+  background-color: #93c5fd;
+}
+.infra-e {
+  background-color: #c4b5fd;
+}
 
 .model-badge {
   display: inline-block;
@@ -246,13 +340,14 @@ button:active {
   box-shadow: 1px 1px 0 #333;
 }
 
-#run-round, #run-scenario {
+#run-round,
+#run-scenario {
   background: var(--marker-green);
   color: white;
 }
 
-
-#validation-left-panel, #validation-right-panel {
+#validation-left-panel,
+#validation-right-panel {
   border-radius: 15px 5px 15px 5px / 5px 15px 5px 15px;
 }
 
@@ -334,7 +429,7 @@ button:active {
   border: 2px solid #333;
   padding: 12px;
   border-radius: 2px 2px 2px 2px / 8px 8px 8px 8px;
-  box-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
 #budget-card-scenario h2 {
@@ -390,8 +485,8 @@ button:active {
 .recommendation-card {
   background: var(--sticky-yellow);
   padding: 20px;
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 5px 5px 15px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.05);
   min-height: 180px;
   display: flex;
   flex-direction: column;
@@ -399,9 +494,18 @@ button:active {
   transition: transform 0.3s;
 }
 
-.recommendation-card:nth-child(1) { transform: rotate(-2deg); background-color: var(--sticky-yellow); }
-.recommendation-card:nth-child(2) { transform: rotate(1deg); background-color: var(--sticky-blue); }
-.recommendation-card:nth-child(3) { transform: rotate(-1deg); background-color: var(--sticky-pink); }
+.recommendation-card:nth-child(1) {
+  transform: rotate(-2deg);
+  background-color: var(--sticky-yellow);
+}
+.recommendation-card:nth-child(2) {
+  transform: rotate(1deg);
+  background-color: var(--sticky-blue);
+}
+.recommendation-card:nth-child(3) {
+  transform: rotate(-1deg);
+  background-color: var(--sticky-pink);
+}
 
 .recommendation-card:hover {
   transform: scale(1.05) rotate(0deg);
@@ -470,7 +574,6 @@ button:active {
 .final-stat-card:hover {
   transform: rotate(0deg) scale(1.05) !important;
 }
-
 
 /* Modal Styles */
 .modal-overlay {
