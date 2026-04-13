@@ -155,6 +155,7 @@ const attemptSchema = z
       .regex(/^[a-z0-9-]+$/u, "Modo inválido")
       .optional(),
     solved: z.number().int().min(0).max(999),
+    solvedFirstTry: z.number().int().min(0).max(999).optional(),
     roundsTotal: z.number().int().min(1).max(999),
     totalSpend: z.number().int().min(0).max(1_000_000),
     budgetRemaining: z.number().int().min(-1_000_000).max(1_000_000),
@@ -181,6 +182,7 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
     username,
     modeId: modeIdRaw,
     solved,
+    solvedFirstTry,
     roundsTotal,
     totalSpend,
     budgetRemaining,
@@ -196,6 +198,7 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
     usernameKey,
     modeId,
     solved,
+    solvedFirstTry: typeof solvedFirstTry === "number" ? solvedFirstTry : 0,
     roundsTotal,
     totalSpend,
     budgetRemaining,
