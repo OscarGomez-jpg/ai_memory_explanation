@@ -79,7 +79,34 @@ function queuePersist() {
 
 const app = express();
 app.disable("x-powered-by");
-app.use(helmet());
+
+const DISABLE_CSP =
+  process.env.DISABLE_CSP === "1" ||
+  String(process.env.DISABLE_CSP || "").toLowerCase() === "true";
+
+app.use(
+  helmet({
+    contentSecurityPolicy: DISABLE_CSP
+      ? false
+      : {
+          directives: {
+            "default-src": ["'self'"],
+            "base-uri": ["'self'"],
+            "frame-ancestors": ["'none'"],
+            "object-src": ["'none'"],
+            "img-src": ["'self'", "data:"],
+            "script-src": ["'self'"],
+            "connect-src": ["'self'"],
+            "style-src": [
+              "'self'",
+              "'unsafe-inline'",
+              "https://fonts.googleapis.com",
+            ],
+            "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+          },
+        },
+  }),
+);
 app.use(express.json({ limit: "20kb" }));
 
 // Basic in-memory rate limiter to reduce drive-by spam.
