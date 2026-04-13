@@ -687,6 +687,15 @@ async function refreshGameControl() {
       updateStageTimerUI();
     }
 
+    // Don't interrupt the result modal with admin gating.
+    // The player should be able to read the outcome until they click next.
+    if (
+      modalOverlay.style.display === "flex" &&
+      modalOverlay.dataset.kind !== "admin-block"
+    ) {
+      return;
+    }
+
     const effectiveProblem = getEffectiveProblemForGate();
     let effectivePart = getPartForProblem(effectiveProblem);
     if (typeof pendingLockedPart === "number") {
@@ -1020,7 +1029,7 @@ async function showFinalScreen() {
         <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 6px;">Costo estimado (USD por 1M tokens)</div>
         <div style="font-family: var(--font-accent); font-size: 2.6rem; color: var(--marker-red); font-weight: bold;">${usdEstimateLabel}</div>
         <div style="font-family: var(--font-main); font-size: 1rem; color: var(--ink); opacity: 0.9;">Tarifa usada: ${usdPer1MLabel} / 1M tokens · Consumo estimado: ${tokensMillionsLabel}M tokens (1 crédito ≈ 1.000 tokens).</div>
-        <div style="font-family: var(--font-main); font-size: 1rem; color: var(--ink); opacity: 0.9; margin-top: 8px;">Proyección empresa: ~${annualCompanyUsdLabel} / año con ${USERS_PER_YEAR_ESTIMATE} usuarios (basado en tu costo promedio por request; requests en el juego: ${requestCountLabel}; sup.: ${AVG_REQUESTS_PER_USER_MONTH_ESTIMATE} requests/usuario/mes).</div>
+        <div style="font-family: var(--font-main); font-size: 1rem; color: var(--ink); opacity: 0.9; margin-top: 8px;">Proyección empresa: ~${annualCompanyUsdLabel} / año con ${USERS_PER_YEAR_ESTIMATE} usuarios (tu costo promedio por request se calcula con tus ${requestCountLabel} requests del juego; para producción asumimos ${AVG_REQUESTS_PER_USER_MONTH_ESTIMATE} requests/usuario/mes).</div>
       </div>
 
       <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
