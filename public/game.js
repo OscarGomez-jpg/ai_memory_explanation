@@ -1,5 +1,11 @@
 const MODEL_NAME = "Gemma 4:2be Custom";
 
+// ====== COST ESTIMATION (teaching) ======
+// These are simplified assumptions to help users reason about tradeoffs.
+const TOKENS_PER_CREDIT_ESTIMATE = 1_000; // 1 crédito ≈ 1.000 tokens
+const USD_PER_1M_TOKENS_ESTIMATE = 3.0; // USD por 1M tokens (supuesto)
+const AVG_REQUESTS_PER_USER_MONTH_ESTIMATE = 200; // usuario promedio (supuesto)
+
 // BLOQUES DE MEMORIA DISPONIBLES
 const MEMORY_BLOCKS = [
   {
@@ -222,6 +228,7 @@ const PROBLEMS = [
 
 const gameState = {
   totalSpend: 0,
+  requestCount: 0,
   solved: 0,
   solvedFirstTry: 0, // Tickets resueltos a la primera sin fallar
   roundIndex: 0,
@@ -297,7 +304,7 @@ const gameControlState = {
   loaded: false,
 };
 
-const STAGE_DURATION_MS = 2 * 60 * 1000;
+const STAGE_DURATION_MS = 3 * 60 * 1000;
 let stageTimerIntervalId = null;
 let handledStageStartedAt = null;
 let pendingLockedPart = null;
@@ -695,6 +702,15 @@ async function refreshGameControl() {
     }
 
     if (effectivePart > gameControlState.unlockedPart) {
+      // If the current problem is already solved and the *next* part is locked,
+      // commit the transition now so the player doesn't have to re-solve the
+      // last problem after the admin unlocks.
+      const currentProblem = PROBLEMS[gameState.roundIndex];
+      const currentPart = getPartForProblem(currentProblem);
+      if (gameState.currentProblemSolved && currentPart < effectivePart) {
+        moveToPartStart(effectivePart);
+      }
+      pendingLockedPart = effectivePart;
       showAdminBlockModal(
         "Esperando al admin",
         `Para continuar, el admin debe habilitar ${getPartLabel(effectivePart)}.`,
@@ -721,6 +737,7 @@ window.addEventListener("resize", syncCanvasResolution);
 
 function resetGame() {
   gameState.totalSpend = 0;
+  gameState.requestCount = 0;
   gameState.solved = 0;
   gameState.solvedFirstTry = 0;
   gameState.roundIndex = 0;
@@ -745,13 +762,68 @@ function goToNextProblem() {
   void submitAttempt();
 }
 
-function showModal(success, problem, actualOutput, cost) {
+function showModal(success, problem, actualOutput, cost, selectedBlockIds) {
   const modalContent = document.querySelector(".modal-content");
   modalCloseBtn.disabled = false;
   if (modalOverlay.dataset && modalOverlay.dataset.kind) {
     delete modalOverlay.dataset.kind;
   }
   freezeStageCountdown();
+
+  const requiredBlock = MEMORY_BLOCKS.find(
+    (b) => b && b.problemMatch === problem.priority,
+  );
+  const requiredBlockId = requiredBlock ? requiredBlock.id : null;
+  const requiredBlockName = requiredBlock
+    ? requiredBlock.name
+    : problem.priority;
+
+  const pickedIds = Array.isArray(selectedBlockIds)
+    ? selectedBlockIds
+    : Array.isArray(gameState.activeBlockIds)
+      ? gameState.activeBlockIds
+      : [];
+  const pickedBlocks = pickedIds
+    .map((id) => MEMORY_BLOCKS.find((b) => b && b.id === id))
+    .filter(Boolean);
+  const pickedNonBase = pickedBlocks.filter((b) => !b.mandatory);
+  const missingRequired =
+    requiredBlockId && !pickedIds.includes(requiredBlockId);
+  const extraBlocks = requiredBlockId
+    ? pickedNonBase.filter((b) => b.id !== requiredBlockId)
+    : pickedNonBase;
+
+  const tokensPerRequestEstimate =
+    Math.max(0, Number(cost) || 0) * TOKENS_PER_CREDIT_ESTIMATE;
+  const usdPerRequestEstimate =
+    (tokensPerRequestEstimate / 1_000_000) * USD_PER_1M_TOKENS_ESTIMATE;
+  const usdPerUserMonthEstimate =
+    usdPerRequestEstimate * AVG_REQUESTS_PER_USER_MONTH_ESTIMATE;
+
+  const tokensPerRequestLabel = new Intl.NumberFormat("es-ES", {
+    maximumFractionDigits: 0,
+  }).format(tokensPerRequestEstimate);
+  const usdPerUserMonthLabel = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(usdPerUserMonthEstimate);
+
+  const extraNames = extraBlocks.map((b) => b.name).join(", ");
+  let whyChoiceText = "";
+  if (missingRequired) {
+    whyChoiceText = `Faltó <strong>${requiredBlockName}</strong>. Sin ese tipo de memoria, el modelo no tiene la información adecuada para este ticket.`;
+  } else if (extraBlocks.length > 0) {
+    whyChoiceText = `Sobre-costo: agregaste <strong>${extraNames}</strong>, que para este ticket aporta poco y aumenta costo/latencia.`;
+  } else {
+    whyChoiceText = `Elección eficiente: usaste <strong>${requiredBlockName}</strong> sin extras innecesarios.`;
+  }
+
+  const productionImpactHtml = `
+    <hr style="border: none; border-top: 2px dashed rgba(0,0,0,0.2); margin: 12px 0;" />
+    <p><strong>Impacto (estimado):</strong> ~${tokensPerRequestLabel} tokens/request ⇒ ~${usdPerUserMonthLabel} por usuario/mes (${AVG_REQUESTS_PER_USER_MONTH_ESTIMATE} requests/mes).</p>
+    <p style="margin-top: 6px;"><strong>Por qué importa:</strong> ${whyChoiceText}</p>
+  `;
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -761,6 +833,7 @@ function showModal(success, problem, actualOutput, cost) {
       <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
       <p><strong>Generado:</strong> ${actualOutput}</p>
       <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+      ${productionImpactHtml}
     `;
     modalCloseBtn.textContent =
       gameState.roundIndex < PROBLEMS.length - 1
@@ -774,6 +847,7 @@ function showModal(success, problem, actualOutput, cost) {
       <p><strong>Esperado:</strong> ${problem.expectedOutput}</p>
       <p><strong>Generado:</strong> ${actualOutput}</p>
       <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
+      ${productionImpactHtml}
     `;
     modalCloseBtn.textContent = "Reintentar";
   }
@@ -872,6 +946,52 @@ async function showFinalScreen() {
   // Crear y mostrar la pantalla final
   const finalScreen = document.createElement("div");
   finalScreen.id = "final-screen";
+
+  const credits = Math.max(0, Number(gameState.totalSpend) || 0);
+  const requestCount = Math.max(0, Number(gameState.requestCount) || 0);
+  const tokensEstimate = credits * TOKENS_PER_CREDIT_ESTIMATE;
+  const tokensMillions = tokensEstimate / 1_000_000;
+  const usdEstimate = tokensMillions * USD_PER_1M_TOKENS_ESTIMATE;
+
+  const USERS_PER_YEAR_ESTIMATE = 2_000;
+  const avgCreditsPerRequest = requestCount > 0 ? credits / requestCount : 0;
+  const avgTokensPerRequestEstimate =
+    avgCreditsPerRequest * TOKENS_PER_CREDIT_ESTIMATE;
+  const monthlyTokensPerUserEstimate =
+    avgTokensPerRequestEstimate * AVG_REQUESTS_PER_USER_MONTH_ESTIMATE;
+  const annualCompanyUsdEstimate =
+    (monthlyTokensPerUserEstimate / 1_000_000) *
+    USD_PER_1M_TOKENS_ESTIMATE *
+    12 *
+    USERS_PER_YEAR_ESTIMATE;
+
+  const usdEstimateLabel = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(usdEstimate);
+
+  const usdPer1MLabel = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(USD_PER_1M_TOKENS_ESTIMATE);
+
+  const tokensMillionsLabel = new Intl.NumberFormat("es-ES", {
+    maximumFractionDigits: 3,
+  }).format(tokensMillions);
+
+  const annualCompanyUsdLabel = new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(annualCompanyUsdEstimate);
+
+  const requestCountLabel = new Intl.NumberFormat("es-ES", {
+    maximumFractionDigits: 0,
+  }).format(requestCount);
+
   finalScreen.innerHTML = `
     <div style="text-align: center; padding: 40px;">
       <h1 style="font-family: var(--font-accent); font-size: 4rem; color: var(--marker-green); margin-bottom: 20px;">
@@ -894,6 +1014,13 @@ async function showFinalScreen() {
           <div style="font-family: var(--font-accent); font-size: 3.5rem; color: var(--marker-green); font-weight: bold;">${gameState.solvedFirstTry}/${PROBLEMS.length}</div>
           <div style="font-family: var(--font-main); font-size: 1.1rem; color: var(--ink);">sin fallar</div>
         </div>
+      </div>
+
+      <div style="background: var(--paper); padding: 18px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto 18px; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
+        <div style="font-family: var(--font-hand); font-size: 1.2rem; color: var(--ink); margin-bottom: 6px;">Costo estimado (USD por 1M tokens)</div>
+        <div style="font-family: var(--font-accent); font-size: 2.6rem; color: var(--marker-red); font-weight: bold;">${usdEstimateLabel}</div>
+        <div style="font-family: var(--font-main); font-size: 1rem; color: var(--ink); opacity: 0.9;">Tarifa usada: ${usdPer1MLabel} / 1M tokens · Consumo estimado: ${tokensMillionsLabel}M tokens (1 crédito ≈ 1.000 tokens).</div>
+        <div style="font-family: var(--font-main); font-size: 1rem; color: var(--ink); opacity: 0.9; margin-top: 8px;">Proyección empresa: ~${annualCompanyUsdLabel} / año con ${USERS_PER_YEAR_ESTIMATE} usuarios (basado en tu costo promedio por request; requests en el juego: ${requestCountLabel}; sup.: ${AVG_REQUESTS_PER_USER_MONTH_ESTIMATE} requests/usuario/mes).</div>
       </div>
 
       <div style="background: var(--sticky-pink); padding: 25px; border: 3px solid #333; border-radius: 10px; max-width: 600px; margin: 0 auto; box-shadow: 6px 6px 0 rgba(0,0,0,0.15);">
@@ -933,6 +1060,8 @@ function runScenarioRound() {
     showWarningModal();
     return;
   }
+
+  gameState.requestCount += 1;
 
   const selectedOption = problem.options[gameState.selectedScenarioIndex];
 
@@ -1017,6 +1146,8 @@ function handleValidationAnswer(userAnsweredYes) {
   answerYesBtnValidation.disabled = true;
   answerNoBtnValidation.disabled = true;
 
+  gameState.requestCount += 1;
+
   const problem = PROBLEMS[gameState.roundIndex];
 
   // Verificar si la respuesta es correcta
@@ -1080,6 +1211,9 @@ function showValidationResultModal(success, problem, cost) {
 
 function runCurrentRound() {
   const problem = PROBLEMS[gameState.roundIndex];
+  const selectedBlockIdsSnapshot = Array.isArray(gameState.activeBlockIds)
+    ? [...gameState.activeBlockIds]
+    : [];
 
   // Verificar que haya seleccionado al menos un bloque adicional (no solo base)
   if (
@@ -1089,6 +1223,8 @@ function runCurrentRound() {
     showWarningModal();
     return;
   }
+
+  gameState.requestCount += 1;
 
   // Calcular coste del build actual
   let currentBuildCost = 0;
@@ -1163,7 +1299,13 @@ function runCurrentRound() {
   }
 
   updateUI();
-  showModal(success, problem, actualOutput, totalCost);
+  showModal(
+    success,
+    problem,
+    actualOutput,
+    totalCost,
+    selectedBlockIdsSnapshot,
+  );
 }
 
 function renderToolbox() {
