@@ -10,17 +10,11 @@ function setUserStatus(text, kind) {
   el.className = `status-pill${kind ? ` ${kind}` : ""}`;
 }
 
-function getSelectedModeId() {
-  const sel = document.getElementById("admin-mode");
-  return String(sel.value || "memory-architect").trim() || "memory-architect";
-}
-
 async function refreshAdminLeaderboard() {
   setAdminStatus("Cargando...", "");
 
   try {
-    const modeId = encodeURIComponent(getSelectedModeId());
-    const resp = await fetch(`/api/leaderboard?limit=50&modeId=${modeId}`, {
+    const resp = await fetch(`/api/leaderboard?limit=50`, {
       method: "GET",
     });
     const data = await resp.json();
@@ -79,12 +73,10 @@ async function fetchUserAttempts() {
   setUserStatus("Cargando historial...", "");
 
   try {
-    const modeId = encodeURIComponent(getSelectedModeId());
     const u = encodeURIComponent(username);
-    const resp = await fetch(
-      `/api/user-attempts?username=${u}&modeId=${modeId}&limit=20`,
-      { method: "GET" },
-    );
+    const resp = await fetch(`/api/user-attempts?username=${u}&limit=20`, {
+      method: "GET",
+    });
     const data = await resp.json();
 
     if (!resp.ok || !data || !Array.isArray(data.items)) {
@@ -97,7 +89,7 @@ async function fetchUserAttempts() {
 
     if (data.items.length === 0) {
       const li = document.createElement("li");
-      li.textContent = "Sin partidas registradas en este modo.";
+      li.textContent = "Sin partidas registradas.";
       list.appendChild(li);
       setUserStatus("Sin resultados.", "warn");
       return;
@@ -121,10 +113,6 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("admin-refresh")
     .addEventListener("click", () => void refreshAdminLeaderboard());
-
-  document
-    .getElementById("admin-mode")
-    .addEventListener("change", () => void refreshAdminLeaderboard());
 
   document
     .getElementById("admin-user-fetch")

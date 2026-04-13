@@ -23,15 +23,6 @@
       <h2>Leaderboard</h2>
       <p class="leaderboard-hint">Ordenado por tickets resueltos y, en empate, menor gasto.</p>
 
-      <label class="player-field" style="margin-top: 10px;">
-        <span>Modo</span>
-        <select id="admin-mode">
-          <option value="memory-architect">Memory Architect</option>
-          <option value="mode-2">Modo 2</option>
-          <option value="mode-3">Modo 3</option>
-        </select>
-      </label>
-
       <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
         <div id="admin-status" class="status-pill" aria-live="polite"></div>
         <button type="button" id="admin-refresh">Actualizar</button>
@@ -40,7 +31,7 @@
 
       <div style="margin-top: 14px; border-top: 1px dashed #94a3b8; padding-top: 12px;">
         <h2>Resultados</h2>
-        <p class="leaderboard-hint">Historial del jugador en el modo seleccionado.</p>
+        <p class="leaderboard-hint">Historial del jugador.</p>
 
         <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
           <input id="admin-user" type="text" maxlength="24" placeholder="Nombre del jugador"

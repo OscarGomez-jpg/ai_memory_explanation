@@ -7,7 +7,7 @@ const MEMORY_BLOCKS = [
     name: "Parametric",
     description: "Model weights. Pure training data.",
     cost: 0,
-    reliability: 0.40,
+    reliability: 0.4,
     color: "#dcfce7",
     mandatory: true,
   },
@@ -25,7 +25,7 @@ const MEMORY_BLOCKS = [
     name: "Procedural",
     description: "System prompts & operating rules.",
     cost: 150,
-    reliability: 0.20,
+    reliability: 0.2,
     color: "#e0f2fe",
     problemMatch: "Procedural",
   },
@@ -43,7 +43,7 @@ const MEMORY_BLOCKS = [
     name: "Semantic",
     description: "Knowledge Graphs & entity relationships.",
     cost: 350,
-    reliability: 0.30,
+    reliability: 0.3,
     color: "#fff7ed",
     problemMatch: "Semantic",
   },
@@ -98,37 +98,45 @@ const PROBLEMS = [
     id: 5,
     type: "validation",
     title: "Consulta sobre Python",
-    scenario: "Un usuario pregunta: '¿Cuál es la sintaxis para crear una lista en Python?'",
+    scenario:
+      "Un usuario pregunta: '¿Cuál es la sintaxis para crear una lista en Python?'",
     chosenMemory: "Episodic Memory",
     correctAnswer: false, // NO es correcto
-    explanation: "Esta pregunta requiere conocimiento general de programación, no de conversaciones previas. Debería usar Parametric Memory (conocimiento base del modelo).",
+    explanation:
+      "Esta pregunta requiere conocimiento general de programación, no de conversaciones previas. Debería usar Parametric Memory (conocimiento base del modelo).",
   },
   {
     id: 6,
     type: "validation",
     title: "Recordar preferencias del usuario",
-    scenario: "El usuario dice: 'Recuerda que prefiero respuestas cortas'. Más tarde pregunta algo y el modelo debe responder brevemente.",
+    scenario:
+      "El usuario dice: 'Recuerda que prefiero respuestas cortas'. Más tarde pregunta algo y el modelo debe responder brevemente.",
     chosenMemory: "Episodic Memory",
     correctAnswer: true, // SÍ es correcto
-    explanation: "Episodic Memory es ideal para recordar preferencias mencionadas en la conversación actual.",
+    explanation:
+      "Episodic Memory es ideal para recordar preferencias mencionadas en la conversación actual.",
   },
   {
     id: 7,
     type: "validation",
     title: "Políticas de devolución",
-    scenario: "Un cliente pregunta sobre el proceso de devolución de productos. El sistema necesita seguir las políticas establecidas por la empresa.",
+    scenario:
+      "Un cliente pregunta sobre el proceso de devolución de productos. El sistema necesita seguir las políticas establecidas por la empresa.",
     chosenMemory: "Procedural Memory",
     correctAnswer: true, // SÍ es correcto
-    explanation: "Procedural Memory contiene las reglas y procedimientos operativos de la empresa.",
+    explanation:
+      "Procedural Memory contiene las reglas y procedimientos operativos de la empresa.",
   },
   {
     id: 8,
     type: "validation",
     title: "Búsqueda en documentación técnica",
-    scenario: "Un desarrollador pregunta sobre cómo configurar un servicio específico que está documentado en Confluence.",
+    scenario:
+      "Un desarrollador pregunta sobre cómo configurar un servicio específico que está documentado en Confluence.",
     chosenMemory: "External Memory (RAG)",
     correctAnswer: true, // SÍ es correcto
-    explanation: "External Memory permite buscar en bases de conocimiento externas como Confluence.",
+    explanation:
+      "External Memory permite buscar en bases de conocimiento externas como Confluence.",
   },
   {
     id: 9,
@@ -136,12 +144,22 @@ const PROBLEMS = [
     title: "Episodic Memory",
     memoryType: "Episodic",
     options: [
-      { text: "¿Qué te dije sobre mis preferencias de formato?", isCorrect: true },
+      {
+        text: "¿Qué te dije sobre mis preferencias de formato?",
+        isCorrect: true,
+      },
       { text: "¿Cuál es la capital de Francia?", isCorrect: false },
-      { text: "¿Cómo funciona el algoritmo de ordenamiento quicksort?", isCorrect: false },
-      { text: "¿Cuál es la política de reembolsos de la empresa?", isCorrect: false },
+      {
+        text: "¿Cómo funciona el algoritmo de ordenamiento quicksort?",
+        isCorrect: false,
+      },
+      {
+        text: "¿Cuál es la política de reembolsos de la empresa?",
+        isCorrect: false,
+      },
     ],
-    explanation: "Episodic Memory es ideal para recordar información de la conversación actual, como preferencias mencionadas anteriormente.",
+    explanation:
+      "Episodic Memory es ideal para recordar información de la conversación actual, como preferencias mencionadas anteriormente.",
   },
   {
     id: 10,
@@ -151,10 +169,17 @@ const PROBLEMS = [
     options: [
       { text: "¿Cuál fue el último mensaje que te envié?", isCorrect: false },
       { text: "¿Qué significa machine learning?", isCorrect: false },
-      { text: "¿Qué documentación existe sobre microservicios en el wiki?", isCorrect: false },
-      { text: "¿Cuáles son los pasos para escalar un incidente crítico?", isCorrect: true },
+      {
+        text: "¿Qué documentación existe sobre microservicios en el wiki?",
+        isCorrect: false,
+      },
+      {
+        text: "¿Cuáles son los pasos para escalar un incidente crítico?",
+        isCorrect: true,
+      },
     ],
-    explanation: "Procedural Memory contiene reglas, protocolos y procedimientos operativos establecidos.",
+    explanation:
+      "Procedural Memory contiene reglas, protocolos y procedimientos operativos establecidos.",
   },
   {
     id: 11,
@@ -163,11 +188,15 @@ const PROBLEMS = [
     memoryType: "External",
     options: [
       { text: "¿Cuál es el protocolo de emergencia?", isCorrect: false },
-      { text: "Busca información sobre la API de pagos en la documentación interna.", isCorrect: true },
+      {
+        text: "Busca información sobre la API de pagos en la documentación interna.",
+        isCorrect: true,
+      },
       { text: "Resume lo que hablamos hace 5 minutos.", isCorrect: false },
       { text: "¿Cómo se llama el CEO de la empresa?", isCorrect: false },
     ],
-    explanation: "External Memory (RAG) permite buscar en bases de conocimiento externas y documentación almacenada.",
+    explanation:
+      "External Memory (RAG) permite buscar en bases de conocimiento externas y documentación almacenada.",
   },
   {
     id: 12,
@@ -175,12 +204,19 @@ const PROBLEMS = [
     title: "Semantic Memory",
     memoryType: "Semantic",
     options: [
-      { text: "¿Qué dijo el cliente sobre sus preferencias?", isCorrect: false },
+      {
+        text: "¿Qué dijo el cliente sobre sus preferencias?",
+        isCorrect: false,
+      },
       { text: "Busca el último changelog en Confluence.", isCorrect: false },
-      { text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?", isCorrect: true },
+      {
+        text: "¿Qué relaciones existen entre los servicios de autenticación y los microservicios de usuario?",
+        isCorrect: true,
+      },
       { text: "¿Cuál es el proceso para aprobar un PR?", isCorrect: false },
     ],
-    explanation: "Semantic Memory usa grafos de conocimiento para entender relaciones complejas entre entidades.",
+    explanation:
+      "Semantic Memory usa grafos de conocimiento para entender relaciones complejas entre entidades.",
   },
 ];
 
@@ -222,29 +258,43 @@ const modalCloseBtn = document.getElementById("modal-close-btn");
 const stageEl = document.getElementById("stage");
 const validationLeftPanel = document.getElementById("validation-left-panel");
 const validationRightPanel = document.getElementById("validation-right-panel");
-const chosenMemoryElValidation = document.getElementById("chosen-memory-validation");
+const chosenMemoryElValidation = document.getElementById(
+  "chosen-memory-validation",
+);
 const answerYesBtnValidation = document.getElementById("answer-yes-validation");
 const answerNoBtnValidation = document.getElementById("answer-no-validation");
-const ticketProblemTitleValidation = document.getElementById("ticket-problem-title-validation");
-const customerMessageValidation = document.getElementById("customer-message-validation");
+const ticketProblemTitleValidation = document.getElementById(
+  "ticket-problem-title-validation",
+);
+const customerMessageValidation = document.getElementById(
+  "customer-message-validation",
+);
 const spendValueValidation = document.getElementById("spend-value-validation");
 
 const validationCanvas = document.getElementById("validation-board");
 const validationCtx = validationCanvas.getContext("2d");
 
-const scenarioSelectionPanel = document.getElementById("scenario-selection-panel");
+const scenarioSelectionPanel = document.getElementById(
+  "scenario-selection-panel",
+);
 const scenarioCanvas = document.getElementById("scenario-board");
 const scenarioCtx = scenarioCanvas.getContext("2d");
 const scenarioOptionsDiv = document.getElementById("scenario-options");
-const ticketProblemTitleScenario = document.getElementById("ticket-problem-title-scenario");
+const ticketProblemTitleScenario = document.getElementById(
+  "ticket-problem-title-scenario",
+);
 const spendValueScenario = document.getElementById("spend-value-scenario");
 const runScenarioBtn = document.getElementById("run-scenario");
 
 runRoundBtn.addEventListener("click", runCurrentRound);
 runScenarioBtn.addEventListener("click", runScenarioRound);
 modalCloseBtn.addEventListener("click", closeModal);
-answerYesBtnValidation.addEventListener("click", () => handleValidationAnswer(true));
-answerNoBtnValidation.addEventListener("click", () => handleValidationAnswer(false));
+answerYesBtnValidation.addEventListener("click", () =>
+  handleValidationAnswer(true),
+);
+answerNoBtnValidation.addEventListener("click", () =>
+  handleValidationAnswer(false),
+);
 window.addEventListener("resize", syncCanvasResolution);
 
 function resetGame() {
@@ -288,7 +338,10 @@ function showModal(success, problem, actualOutput, cost) {
       <p><strong>Generado:</strong> ${actualOutput}</p>
       <p><strong>Costo de esta ejecución:</strong> ${cost} cr</p>
     `;
-    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+    modalCloseBtn.textContent =
+      gameState.roundIndex < PROBLEMS.length - 1
+        ? "Siguiente Ticket"
+        : "Finalizar";
   } else {
     modalContent.className = "modal-content modal-failure";
     modalTitle.textContent = "Fallo";
@@ -308,7 +361,8 @@ function showWarningModal() {
   const modalContent = document.querySelector(".modal-content");
   modalContent.className = "modal-content modal-failure";
   modalTitle.textContent = "Atención";
-  modalMessage.textContent = "Debes seleccionar al menos un bloque de memoria adicional del Memory Toolbox antes de ejecutar.";
+  modalMessage.textContent =
+    "Debes seleccionar al menos un bloque de memoria adicional del Memory Toolbox antes de ejecutar.";
   modalDetails.innerHTML = `
     <p>El modelo base (Parametric) solo no es suficiente para resolver los tickets.</p>
     <p>Haz clic en los bloques de memoria disponibles en el panel izquierdo.</p>
@@ -343,7 +397,7 @@ async function showFinalScreen() {
   finalScreen.innerHTML = `
     <div style="text-align: center; padding: 40px;">
       <h1 style="font-family: var(--font-accent); font-size: 4rem; color: var(--marker-green); margin-bottom: 20px;">
-        ¡Gracias por participar${currentPlayer ? ', ' + currentPlayer.username : ''}!
+        ¡Gracias por participar${currentPlayer ? ", " + currentPlayer.username : ""}!
       </h1>
 
       <p style="font-family: var(--font-hand); font-size: 1.5rem; color: var(--marker-blue); margin-bottom: 40px;">
@@ -425,7 +479,11 @@ function runScenarioRound() {
     gameState.hasFailedCurrentProblem = true;
 
     // Deshabilitar la opción incorrecta
-    if (!gameState.disabledScenarioIndices.includes(gameState.selectedScenarioIndex)) {
+    if (
+      !gameState.disabledScenarioIndices.includes(
+        gameState.selectedScenarioIndex,
+      )
+    ) {
       gameState.disabledScenarioIndices.push(gameState.selectedScenarioIndex);
     }
 
@@ -444,17 +502,22 @@ function showScenarioResultModal(success, problem, selectedText, cost) {
   if (success) {
     modalContent.className = "modal-content modal-success";
     modalTitle.textContent = "¡Correcto!";
-    modalMessage.textContent = "Has identificado correctamente el escenario que puede resolverse con esta arquitectura.";
+    modalMessage.textContent =
+      "Has identificado correctamente el escenario que puede resolverse con esta arquitectura.";
     modalDetails.innerHTML = `
       <p><strong>Tu selección:</strong> ${selectedText}</p>
       <p><strong>Explicación:</strong> ${problem.explanation}</p>
       <p><strong>Tokens gastados:</strong> ${cost} cr</p>
     `;
-    modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+    modalCloseBtn.textContent =
+      gameState.roundIndex < PROBLEMS.length - 1
+        ? "Siguiente Ticket"
+        : "Finalizar";
   } else {
     modalContent.className = "modal-content modal-failure";
     modalTitle.textContent = "Incorrecto";
-    modalMessage.textContent = "Esta arquitectura no es la más adecuada para el escenario seleccionado. Intenta con otra opción.";
+    modalMessage.textContent =
+      "Esta arquitectura no es la más adecuada para el escenario seleccionado. Intenta con otra opción.";
     modalDetails.innerHTML = `
       <p><strong>Tu selección:</strong> ${selectedText}</p>
       <p><strong>Tokens gastados:</strong> ${cost} cr</p>
@@ -499,7 +562,8 @@ function showValidationResultModal(success, problem, cost) {
   if (success) {
     modalContent.className = "modal-content modal-success";
     modalTitle.textContent = "¡Correcto!";
-    modalMessage.textContent = "Has evaluado correctamente la selección de memoria.";
+    modalMessage.textContent =
+      "Has evaluado correctamente la selección de memoria.";
     modalDetails.innerHTML = `
       <p><strong>Explicación:</strong> ${problem.explanation}</p>
       <p><strong>Tokens gastados:</strong> ${cost} cr</p>
@@ -514,7 +578,10 @@ function showValidationResultModal(success, problem, cost) {
     `;
   }
 
-  modalCloseBtn.textContent = gameState.roundIndex < PROBLEMS.length - 1 ? "Siguiente Ticket" : "Finalizar";
+  modalCloseBtn.textContent =
+    gameState.roundIndex < PROBLEMS.length - 1
+      ? "Siguiente Ticket"
+      : "Finalizar";
   modalOverlay.style.display = "flex";
 }
 
@@ -522,15 +589,18 @@ function runCurrentRound() {
   const problem = PROBLEMS[gameState.roundIndex];
 
   // Verificar que haya seleccionado al menos un bloque adicional (no solo base)
-  if (gameState.activeBlockIds.length === 1 && gameState.activeBlockIds[0] === "base") {
+  if (
+    gameState.activeBlockIds.length === 1 &&
+    gameState.activeBlockIds[0] === "base"
+  ) {
     showWarningModal();
     return;
   }
 
   // Calcular coste del build actual
   let currentBuildCost = 0;
-  gameState.activeBlockIds.forEach(id => {
-    const block = MEMORY_BLOCKS.find(b => b.id === id);
+  gameState.activeBlockIds.forEach((id) => {
+    const block = MEMORY_BLOCKS.find((b) => b.id === id);
     currentBuildCost += block.cost;
   });
 
@@ -542,8 +612,8 @@ function runCurrentRound() {
   gameState.totalSpend += totalCost;
 
   // Lógica de éxito: DEBE tener el bloque necesario para la prioridad del problema
-  const hasRequiredMemory = gameState.activeBlockIds.some(id => {
-    const b = MEMORY_BLOCKS.find(block => block.id === id);
+  const hasRequiredMemory = gameState.activeBlockIds.some((id) => {
+    const b = MEMORY_BLOCKS.find((block) => block.id === id);
     return b.problemMatch === problem.priority;
   });
 
@@ -552,22 +622,26 @@ function runCurrentRound() {
 
   // Calcular métricas para visualización
   let successProb = 0.4; // Base Model
-  gameState.activeBlockIds.forEach(id => {
-    const b = MEMORY_BLOCKS.find(block => block.id === id);
+  gameState.activeBlockIds.forEach((id) => {
+    const b = MEMORY_BLOCKS.find((block) => block.id === id);
     if (!b.mandatory) successProb += 0.1;
     if (b.problemMatch === problem.priority) successProb += 0.4;
   });
 
-  const actualOutput = success ? problem.expectedOutput : "Lo siento, no tengo esa información.";
+  const actualOutput = success
+    ? problem.expectedOutput
+    : "Lo siento, no tengo esa información.";
 
   gameState.latestRun = {
     expected: problem.expectedOutput,
     actual: actualOutput,
     success,
     metrics: {
-        quality: Math.min(100, Math.round(successProb * 100)),
-        memory: Math.round((gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100)
-    }
+      quality: Math.min(100, Math.round(successProb * 100)),
+      memory: Math.round(
+        (gameState.activeBlockIds.length / MEMORY_BLOCKS.length) * 100,
+      ),
+    },
   };
 
   if (success) {
@@ -583,8 +657,11 @@ function runCurrentRound() {
     gameState.hasFailedCurrentProblem = true;
 
     // Deshabilitar el bloque incorrecto que se intentó usar
-    const incorrectBlock = gameState.activeBlockIds.find(id => id !== "base");
-    if (incorrectBlock && !gameState.disabledBlockIds.includes(incorrectBlock)) {
+    const incorrectBlock = gameState.activeBlockIds.find((id) => id !== "base");
+    if (
+      incorrectBlock &&
+      !gameState.disabledBlockIds.includes(incorrectBlock)
+    ) {
       gameState.disabledBlockIds.push(incorrectBlock);
     }
 
@@ -617,7 +694,7 @@ function renderToolbox() {
       <div style="font-weight: bold;">${block.name}</div>
       <div style="font-size: 0.8rem; opacity: 0.7;">${block.description}</div>
       <div style="margin-top: 5px; font-weight: bold;">Cost: ${block.cost} cr</div>
-      ${isDisabled ? '<div style="color: var(--marker-red); margin-top: 5px; font-size: 0.8rem;">✗ Incorrecto</div>' : ''}
+      ${isDisabled ? '<div style="color: var(--marker-red); margin-top: 5px; font-size: 0.8rem;">✗ Incorrecto</div>' : ""}
     `;
 
     btn.disabled = block.mandatory || isDisabled;
@@ -625,7 +702,9 @@ function renderToolbox() {
     btn.addEventListener("click", () => {
       if (isActive) {
         // Deseleccionar el bloque actual
-        gameState.activeBlockIds = gameState.activeBlockIds.filter(id => id !== block.id);
+        gameState.activeBlockIds = gameState.activeBlockIds.filter(
+          (id) => id !== block.id,
+        );
       } else {
         // Deseleccionar todos los bloques excepto 'base', luego agregar el nuevo
         gameState.activeBlockIds = ["base", block.id];
@@ -647,7 +726,7 @@ function roughLine(x1, y1, x2, y2, color = "#333", width = 2) {
   const segments = 10;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
-  for(let i=1; i<=segments; i++) {
+  for (let i = 1; i <= segments; i++) {
     const t = i / segments;
     const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
     const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
@@ -669,12 +748,13 @@ function roughCircle(cx, cy, r, fill = "transparent", stroke = "#333") {
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   const segments = 20;
-  for(let i=0; i<=segments; i++) {
+  for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
     const jitter = (Math.random() - 0.5) * 3;
     const px = cx + (r + jitter) * Math.cos(angle);
     const py = cy + (r + jitter) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
   ctx.stroke();
   ctx.restore();
@@ -702,11 +782,11 @@ function drawBoard() {
 
   // Nodo Central - GEMMA
   drawNode(centerX, midY, 65, "GEMMA", "#dcfce7");
-  
+
   // Nodo Input y Output siempre presentes
   drawNode(leftX, midY, 40, "USER", "#dbeafe");
   drawNode(rightX, midY, 40, "OUTPUT", "#fee2e2");
-  
+
   // Conexión básica
   roughLine(leftX + 40, midY, centerX - 65, midY);
   roughLine(centerX + 65, midY, rightX - 40, midY);
@@ -780,8 +860,20 @@ function drawScenarioBoard(problem) {
   if (memoryType === "Episodic") {
     const ey = midY + 90;
     drawNodeOnCanvas(scenarioCtx, centerX, ey, 40, "HISTORY", "#fef3c7");
-    roughLineOnCanvas(scenarioCtx, rightX - 10, midY + 30, centerX + 30, ey - 10);
-    roughLineOnCanvas(scenarioCtx, centerX - 30, ey - 10, leftX + 10, midY + 30);
+    roughLineOnCanvas(
+      scenarioCtx,
+      rightX - 10,
+      midY + 30,
+      centerX + 30,
+      ey - 10,
+    );
+    roughLineOnCanvas(
+      scenarioCtx,
+      centerX - 30,
+      ey - 10,
+      leftX + 10,
+      midY + 30,
+    );
   } else if (memoryType === "Procedural") {
     const py = midY - 90;
     drawNodeOnCanvas(scenarioCtx, centerX, py, 40, "POLICIES", "#e0f2fe");
@@ -852,7 +944,10 @@ function drawValidationBoard(problem) {
     const py = midY - 120;
     drawNodeOnCanvas(validationCtx, centerX, py, 50, "POLICIES", "#e0f2fe");
     roughLineOnCanvas(validationCtx, centerX, py + 50, centerX, midY - 65);
-  } else if (chosenMemory.includes("External") || chosenMemory.includes("RAG")) {
+  } else if (
+    chosenMemory.includes("External") ||
+    chosenMemory.includes("RAG")
+  ) {
     const ex = centerX - 180;
     const ey = midY - 100;
     drawNodeOnCanvas(validationCtx, ex, ey, 50, "VECTOR DB", "#f3e8ff");
@@ -875,7 +970,7 @@ function roughLineOnCanvas(context, x1, y1, x2, y2, color = "#333", width = 2) {
   const segments = 10;
   context.beginPath();
   context.moveTo(x1, y1);
-  for(let i=1; i<=segments; i++) {
+  for (let i = 1; i <= segments; i++) {
     const t = i / segments;
     const nx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * 2;
     const ny = y1 + (y2 - y1) * t + (Math.random() - 0.5) * 2;
@@ -897,12 +992,13 @@ function drawNodeOnCanvas(context, x, y, r, label, color) {
   context.lineWidth = 2.5;
   context.beginPath();
   const segments = 20;
-  for(let i=0; i<=segments; i++) {
+  for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
     const jitter = (Math.random() - 0.5) * 3;
     const px = x + (r + jitter) * Math.cos(angle);
     const py = y + (r + jitter) * Math.sin(angle);
-    if (i === 0) context.moveTo(px, py); else context.lineTo(px, py);
+    if (i === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
   }
   context.stroke();
 
@@ -925,9 +1021,9 @@ function updateUI() {
   const validationElements = document.querySelectorAll(".validation-only");
   const scenarioElements = document.querySelectorAll(".scenario-only");
 
-  architectureElements.forEach(el => el.style.display = "none");
-  validationElements.forEach(el => el.style.display = "none");
-  scenarioElements.forEach(el => el.style.display = "none");
+  architectureElements.forEach((el) => (el.style.display = "none"));
+  validationElements.forEach((el) => (el.style.display = "none"));
+  scenarioElements.forEach((el) => (el.style.display = "none"));
 
   // Mostrar UI según el tipo de ticket
   if (problem.type === "scenario-selection") {
@@ -943,7 +1039,6 @@ function updateUI() {
     // Dibujar el grafo y renderizar opciones
     drawScenarioBoard(problem);
     renderScenarioOptions(problem);
-
   } else if (problem.type === "validation") {
     // Cambiar layout a modo validation
     stageEl.className = "validation-mode";
@@ -959,11 +1054,10 @@ function updateUI() {
 
     // Dibujar el grafo de validación
     drawValidationBoard(problem);
-
   } else {
     // Modo architecture (original)
     stageEl.className = "";
-    architectureElements.forEach(el => el.style.display = "block");
+    architectureElements.forEach((el) => (el.style.display = "block"));
 
     ticketProblemTitleEl.innerHTML = `
       <div style="color: var(--marker-red); font-family: var(--font-hand); font-size: 1.1rem;">Ticket #${problem.id}</div>
@@ -977,7 +1071,9 @@ function updateUI() {
     if (gameState.latestRun) {
       expectedOutputEl.textContent = gameState.latestRun.expected;
       actualOutputEl.textContent = gameState.latestRun.actual;
-      roundStatusEl.textContent = gameState.latestRun.success ? "MATCH" : "FAIL";
+      roundStatusEl.textContent = gameState.latestRun.success
+        ? "MATCH"
+        : "FAIL";
       roundStatusEl.className = gameState.latestRun.success ? "ok" : "fail";
       scoreQualityEl.style.width = `${gameState.latestRun.metrics.quality}%`;
       scoreMemoryEl.style.width = `${gameState.latestRun.metrics.memory}%`;
@@ -994,59 +1090,32 @@ function updateUI() {
   }
 }
 
-// ========== REGISTRATION & MODE SYSTEM ==========
+// ========== REGISTRATION ==========
 const welcomeOverlay = document.getElementById("welcome-overlay");
 const registerNameInput = document.getElementById("register-name");
-const registerModeSelect = document.getElementById("register-mode");
 const startGameBtn = document.getElementById("start-game");
 const welcomeStatus = document.getElementById("welcome-status");
-const exitModeBtn = document.getElementById("exit-mode");
-const modeNameEl = document.getElementById("mode-name");
 
 let currentPlayer = null;
 
 startGameBtn.addEventListener("click", handleStartGame);
-if (exitModeBtn) {
-  exitModeBtn.addEventListener("click", handleExitMode);
-}
 
 function handleStartGame() {
   const username = registerNameInput.value.trim();
-  const modeId = registerModeSelect.value;
 
   if (!username || username.length < 2) {
     showWelcomeStatus("Por favor ingresa un nombre válido", "error");
     return;
   }
 
-  currentPlayer = { username, modeId };
+  currentPlayer = { username };
 
   // Ocultar overlay y mostrar juego
   welcomeOverlay.style.display = "none";
   document.getElementById("stage").style.display = "grid";
 
-  // Actualizar UI con el modo
-  if (modeNameEl) {
-    modeNameEl.textContent = getModeDisplayName(modeId);
-  }
-
   resetGame();
   syncCanvasResolution();
-}
-
-function handleExitMode() {
-  // Volver al registro
-  currentPlayer = null;
-  welcomeOverlay.style.display = "flex";
-  document.getElementById("stage").style.display = "none";
-
-  // Ocultar pantalla final si existe
-  const finalScreen = document.getElementById("final-screen");
-  if (finalScreen) {
-    finalScreen.remove();
-  }
-
-  resetGame();
 }
 
 function showWelcomeStatus(message, type = "info") {
@@ -1059,21 +1128,11 @@ function showWelcomeStatus(message, type = "info") {
   }, 3000);
 }
 
-function getModeDisplayName(modeId) {
-  const modes = {
-    "memory-architect": "Memory Architect",
-    "mode-2": "Modo 2",
-    "mode-3": "Modo 3"
-  };
-  return modes[modeId] || modeId;
-}
-
 async function submitAttempt() {
   if (!currentPlayer) return;
 
   const attemptData = {
     username: currentPlayer.username,
-    modeId: currentPlayer.modeId,
     solved: gameState.solved,
     solvedFirstTry: gameState.solvedFirstTry,
     roundsTotal: PROBLEMS.length,

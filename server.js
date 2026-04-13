@@ -54,14 +54,14 @@ async function ensureStoreLoaded() {
             ? a.usernameKey
             : username.toLocaleLowerCase("es-ES");
 
+        // This project no longer uses multiple modes.
+        const modeId = "memory-architect";
+
         return {
           ...a,
           username,
           usernameKey,
-          modeId:
-            typeof a.modeId === "string" && a.modeId
-              ? a.modeId
-              : "memory-architect",
+          modeId,
         };
       });
   }
@@ -180,7 +180,7 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
 
   const {
     username,
-    modeId: modeIdRaw,
+    modeId: _modeIdRaw,
     solved,
     solvedFirstTry,
     roundsTotal,
@@ -190,7 +190,7 @@ app.post("/api/attempts", rateLimit, async (req, res) => {
   } = parsed.data;
   const id = crypto.randomUUID();
   const usernameKey = username.toLocaleLowerCase("es-ES");
-  const modeId = modeIdRaw || "memory-architect";
+  const modeId = "memory-architect";
 
   store.attempts.push({
     id,
@@ -221,16 +221,11 @@ app.get("/api/leaderboard", async (req, res) => {
 
   const limitRaw = typeof req.query.limit === "string" ? req.query.limit : "10";
   const limit = Math.max(1, Math.min(50, Number(limitRaw || 10)));
-  const modeIdRaw =
-    typeof req.query.modeId === "string" ? req.query.modeId : "";
-  const modeId =
-    String(modeIdRaw || "memory-architect").trim() || "memory-architect";
 
   const latestByUser = new Map();
 
   for (const a of store.attempts) {
     if (!a || !a.usernameKey) continue;
-    if (String(a.modeId || "memory-architect") !== modeId) continue;
 
     const prev = latestByUser.get(a.usernameKey);
     if (!prev) {
@@ -268,8 +263,6 @@ app.get("/api/user-attempts", async (req, res) => {
 
   const usernameRaw =
     typeof req.query.username === "string" ? req.query.username : "";
-  const modeIdRaw =
-    typeof req.query.modeId === "string" ? req.query.modeId : "";
   const limitRaw = typeof req.query.limit === "string" ? req.query.limit : "20";
 
   const usernameParsed = z
@@ -284,29 +277,11 @@ app.get("/api/user-attempts", async (req, res) => {
     return;
   }
 
-  const modeIdParsed = z
-    .string()
-    .trim()
-    .min(1)
-    .max(32)
-    .regex(/^[a-z0-9-]+$/u)
-    .safeParse(modeIdRaw || "memory-architect");
-  if (!modeIdParsed.success) {
-    res.status(400).json({ error: "Invalid modeId" });
-    return;
-  }
-
   const limit = Math.max(1, Math.min(100, Number(limitRaw || 20)));
   const usernameKey = usernameParsed.data.toLocaleLowerCase("es-ES");
-  const modeId = modeIdParsed.data;
 
   const items = store.attempts
-    .filter(
-      (a) =>
-        a &&
-        a.usernameKey === usernameKey &&
-        String(a.modeId || "memory-architect") === modeId,
-    )
+    .filter((a) => a && a.usernameKey === usernameKey)
     .slice()
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, limit)
