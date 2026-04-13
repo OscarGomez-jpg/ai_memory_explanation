@@ -16,6 +16,28 @@ function setGameControlStatus(text, kind) {
   el.className = `status-pill${kind ? ` ${kind}` : ""}`;
 }
 
+function setDatasetResetStatus(text, kind) {
+  const el = document.getElementById("dataset-reset-status");
+  if (!el) return;
+  el.textContent = text;
+  el.className = `status-pill${kind ? ` ${kind}` : ""}`;
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getStageElapsedText() {
+  const iso = lastGameControl && lastGameControl.stageStartedAt;
+  if (!iso) return "";
+  const startedAt = Date.parse(iso);
+  if (!Number.isFinite(startedAt)) return "";
+  return ` Etapa: ${formatElapsed(Date.now() - startedAt)}.`;
+}
+
 function getPartLabel(part) {
   if (part === 1) return "Parte 1 (arquitectura)";
   if (part === 2) return "Parte 2 (validación)";
@@ -23,8 +45,10 @@ function getPartLabel(part) {
   return `Parte ${part}`;
 }
 
-let lastGameControl = { paused: false, unlockedPart: 3 };
+let lastGameControl = { paused: false, unlockedPart: 3, stageStartedAt: null };
 let leaderboardAutoRefreshId = null;
+let gameControlClockId = null;
+let gameControlLoaded = false;
 
 async function refreshGameControl() {
   setGameControlStatus("Cargando...", "");
@@ -32,23 +56,111 @@ async function refreshGameControl() {
     const resp = await fetch("/api/game-control", { method: "GET" });
     const data = await resp.json();
     if (!resp.ok || !data || typeof data !== "object") {
+      gameControlLoaded = false;
       setGameControlStatus("No se pudo cargar.", "fail");
       return;
     }
 
     const paused = Boolean(data.paused);
     const unlockedPart = Number(data.unlockedPart) || 3;
-    lastGameControl = { paused, unlockedPart };
+    const stageStartedAt =
+      typeof data.stageStartedAt === "string" && data.stageStartedAt.length > 0
+        ? data.stageStartedAt
+        : null;
+    const status =
+      data.status === "idle" ||
+      data.status === "lobby" ||
+      data.status === "running"
+        ? data.status
+        : null;
+    const joinOpen = typeof data.joinOpen === "boolean" ? data.joinOpen : null;
+
+    lastGameControl = {
+      paused,
+      unlockedPart,
+      stageStartedAt,
+      status,
+      joinOpen,
+    };
+    gameControlLoaded = true;
 
     const toggleBtn = document.getElementById("toggle-pause");
     toggleBtn.textContent = paused ? "Reanudar" : "Pausar";
 
+    const statusText =
+      status === "idle"
+        ? "Idle"
+        : status === "lobby"
+          ? `Lobby${joinOpen ? " (join abierto)" : ""}`
+          : status === "running"
+            ? "En juego"
+            : "";
+
     setGameControlStatus(
-      `${paused ? "Pausado" : "En curso"}. Desbloqueado: ${getPartLabel(unlockedPart)}.`,
+      `${statusText ? `${statusText}. ` : ""}${paused ? "Pausado" : "En curso"}. Desbloqueado: ${getPartLabel(unlockedPart)}.${getStageElapsedText()}`,
       paused ? "warn" : "ok",
     );
   } catch (_err) {
+    gameControlLoaded = false;
     setGameControlStatus("Servidor no disponible.", "fail");
+  }
+}
+
+async function createGame() {
+  setGameControlStatus("Creando juego...", "");
+  try {
+    const resp = await fetch("/api/admin/create-game", { method: "POST" });
+    const data = await resp.json();
+    if (!resp.ok || !data || data.ok !== true) {
+      setGameControlStatus("No se pudo crear.", "fail");
+      return;
+    }
+    await refreshGameControl();
+  } catch (_err) {
+    setGameControlStatus("Servidor no disponible.", "fail");
+  }
+}
+
+async function startGameAdmin() {
+  setGameControlStatus("Iniciando juego...", "");
+  try {
+    const resp = await fetch("/api/admin/start-game", { method: "POST" });
+    const data = await resp.json();
+    if (!resp.ok || !data || data.ok !== true) {
+      setGameControlStatus("No se pudo iniciar.", "fail");
+      return;
+    }
+    await refreshGameControl();
+  } catch (_err) {
+    setGameControlStatus("Servidor no disponible.", "fail");
+  }
+}
+
+async function resetDataset() {
+  setDatasetResetStatus("", "");
+
+  const ok = window.confirm(
+    "Esto borrará TODOS los resultados (leaderboard e historial) y reiniciará el control del juego. ¿Continuar?",
+  );
+  if (!ok) return;
+
+  setDatasetResetStatus("Reiniciando...", "");
+
+  try {
+    const resp = await fetch("/api/admin/reset", { method: "POST" });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data || data.ok !== true) {
+      setDatasetResetStatus("No se pudo reiniciar.", "fail");
+      return;
+    }
+
+    setDatasetResetStatus("Dataset reiniciado.", "ok");
+    await refreshGameControl();
+    await refreshAdminLeaderboard();
+    document.getElementById("admin-user-attempts").innerHTML = "";
+    setUserStatus("", "");
+  } catch (_err) {
+    setDatasetResetStatus("Servidor no disponible.", "fail");
   }
 }
 
@@ -231,6 +343,7 @@ async function fetchUserAttempts() {
 
 window.addEventListener("DOMContentLoaded", () => {
   setUserStatus("", "");
+  setDatasetResetStatus("", "");
 
   document
     .getElementById("game-control-refresh")
@@ -260,6 +373,18 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document
+    .getElementById("create-game")
+    .addEventListener("click", () => void createGame());
+
+  document
+    .getElementById("start-game-admin")
+    .addEventListener("click", () => void startGameAdmin());
+
+  document
+    .getElementById("dataset-reset")
+    .addEventListener("click", () => void resetDataset());
+
+  document
     .getElementById("admin-refresh")
     .addEventListener("click", () => void refreshAdminLeaderboard());
 
@@ -273,6 +398,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   refreshAdminLeaderboard();
   refreshGameControl();
+
+  if (gameControlClockId) {
+    window.clearInterval(gameControlClockId);
+  }
+  gameControlClockId = window.setInterval(() => {
+    if (!gameControlLoaded) return;
+    const paused = Boolean(lastGameControl.paused);
+    const unlockedPart = Number(lastGameControl.unlockedPart) || 3;
+    const base = `${paused ? "Pausado" : "En curso"}. Desbloqueado: ${getPartLabel(unlockedPart)}.`;
+    const extra = getStageElapsedText();
+    setGameControlStatus(`${base}${extra}`, paused ? "warn" : "ok");
+  }, 1000);
 
   if (leaderboardAutoRefreshId) {
     window.clearInterval(leaderboardAutoRefreshId);

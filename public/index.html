@@ -19,16 +19,18 @@
     <h1>Memory Architect Challenge</h1>
     <p id="level-description">Construye la arquitectura de memoria ideal para resolver el ticket.</p>
 
+    <div id="stage-timer" class="status-pill" aria-live="polite" style="margin: 12px 0; display: none;"></div>
+
     <div id="welcome-overlay" aria-modal="true" role="dialog">
       <div class="welcome-card">
-        <h2>Registro</h2>
-        <p class="welcome-hint">Ingresa tu nombre para participar en el ranking.</p>
-        <label class="player-field" style="margin-top: 10px;">
+        <h2 id="welcome-title">Registro</h2>
+        <p id="welcome-hint" class="welcome-hint">Ingresa tu nombre para participar en el ranking.</p>
+        <label id="welcome-form" class="player-field" style="margin-top: 10px;">
           <span>Nombre</span>
           <input id="register-name" type="text" inputmode="text" autocomplete="nickname" maxlength="24"
             placeholder="Tu nombre" />
         </label>
-        <div class="welcome-actions">
+        <div id="welcome-actions" class="welcome-actions">
           <button type="button" id="start-game">Entrar</button>
         </div>
         <div id="welcome-status" class="status-pill" aria-live="polite"></div>

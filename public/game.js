@@ -256,6 +256,7 @@ const modalDetails = document.getElementById("modal-details");
 const modalCloseBtn = document.getElementById("modal-close-btn");
 
 const stageEl = document.getElementById("stage");
+const stageTimerEl = document.getElementById("stage-timer");
 const validationLeftPanel = document.getElementById("validation-left-panel");
 const validationRightPanel = document.getElementById("validation-right-panel");
 const chosenMemoryElValidation = document.getElementById(
@@ -290,8 +291,209 @@ const runScenarioBtn = document.getElementById("run-scenario");
 const gameControlState = {
   paused: false,
   unlockedPart: 3,
+  stageStartedAt: null,
+  status: "idle",
+  joinOpen: false,
   loaded: false,
 };
+
+const STAGE_DURATION_MS = 2 * 60 * 1000;
+let stageTimerIntervalId = null;
+let handledStageStartedAt = null;
+let pendingLockedPart = null;
+let gameEnded = false;
+
+const PART_START_INDEX = (() => {
+  const idx1 = 0;
+  const idx2 = PROBLEMS.findIndex((p) => p && p.type === "validation");
+  const idx3 = PROBLEMS.findIndex((p) => p && p.type === "scenario-selection");
+  return {
+    1: idx1,
+    2: idx2 >= 0 ? idx2 : idx1,
+    3: idx3 >= 0 ? idx3 : idx2 >= 0 ? idx2 : idx1,
+  };
+})();
+
+function formatCountdown(msRemaining) {
+  const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function setStageTimerText(text, kind) {
+  if (!stageTimerEl) return;
+  stageTimerEl.textContent = text;
+  stageTimerEl.className = `status-pill${kind ? ` ${kind}` : ""}`;
+}
+
+function hideStageTimer() {
+  if (!stageTimerEl) return;
+  stageTimerEl.style.display = "none";
+}
+
+function showStageTimer() {
+  if (!stageTimerEl) return;
+  stageTimerEl.style.display = "block";
+}
+
+function hardCloseModalOverlay() {
+  modalOverlay.style.display = "none";
+  if (modalOverlay.dataset && modalOverlay.dataset.kind) {
+    delete modalOverlay.dataset.kind;
+  }
+}
+
+function resetPerProblemState() {
+  gameState.latestRun = null;
+  gameState.activeBlockIds = ["base"];
+  gameState.currentProblemSolved = false;
+  gameState.hasFailedCurrentProblem = false;
+  gameState.disabledBlockIds = [];
+  gameState.selectedScenarioIndex = null;
+  gameState.disabledScenarioIndices = [];
+}
+
+function moveToPartStart(part) {
+  const startIndex = PART_START_INDEX[part];
+  if (!Number.isInteger(startIndex) || startIndex < 0) return false;
+
+  const currentProblem = PROBLEMS[gameState.roundIndex];
+  const currentPart = getPartForProblem(currentProblem);
+  if (currentPart >= part) return false;
+
+  gameState.roundIndex = startIndex;
+  resetPerProblemState();
+  updateUI();
+  void submitAttempt();
+  return true;
+}
+
+function forceMoveToPart(part) {
+  const startIndex = PART_START_INDEX[part];
+  if (!Number.isInteger(startIndex) || startIndex < 0) return;
+
+  const currentProblem = PROBLEMS[gameState.roundIndex];
+  const currentPart = getPartForProblem(currentProblem);
+  if (currentPart >= part) return;
+
+  gameState.roundIndex = startIndex;
+  resetPerProblemState();
+  hardCloseModalOverlay();
+
+  pendingLockedPart =
+    typeof gameControlState.unlockedPart === "number" &&
+    part > gameControlState.unlockedPart
+      ? part
+      : null;
+
+  updateUI();
+  void submitAttempt();
+  void refreshGameControl();
+}
+
+function handleStageTimeout(stageStartedAtIso) {
+  if (!stageStartedAtIso) return;
+  if (handledStageStartedAt === stageStartedAtIso) return;
+  handledStageStartedAt = stageStartedAtIso;
+
+  if (gameControlState.paused) return;
+
+  // If we're already waiting for the next stage, don't advance again.
+  if (
+    typeof pendingLockedPart === "number" &&
+    pendingLockedPart > gameControlState.unlockedPart
+  ) {
+    return;
+  }
+
+  const currentProblem = PROBLEMS[gameState.roundIndex];
+  const currentPart = getPartForProblem(currentProblem);
+  const nextPart = currentPart + 1;
+
+  if (nextPart > 3) {
+    void showFinalScreen();
+    return;
+  }
+
+  moveToPartStart(nextPart);
+
+  const shouldWait = nextPart > gameControlState.unlockedPart;
+  pendingLockedPart = shouldWait ? nextPart : null;
+
+  if (shouldWait) {
+    showAdminBlockModal(
+      "Tiempo terminado",
+      `Espera a que el admin habilite ${getPartLabel(nextPart)}.`,
+    );
+  } else {
+    hideAdminBlockModalIfOpen();
+  }
+}
+
+function updateStageTimerUI() {
+  if (gameEnded) {
+    hideStageTimer();
+    return;
+  }
+  if (!currentPlayer) {
+    hideStageTimer();
+    return;
+  }
+  showStageTimer();
+
+  if (
+    typeof pendingLockedPart === "number" &&
+    pendingLockedPart > gameControlState.unlockedPart
+  ) {
+    setStageTimerText(
+      `Listo — Esperando ${getPartLabel(pendingLockedPart)}...`,
+      "warn",
+    );
+    return;
+  }
+
+  const stagePart = gameControlState.loaded
+    ? Number(gameControlState.unlockedPart) || 1
+    : null;
+
+  if (!gameControlState.loaded) {
+    setStageTimerText("Tiempo: --:--", "warn");
+    return;
+  }
+
+  if (gameControlState.paused) {
+    setStageTimerText(`Etapa ${stagePart} — Pausado`, "warn");
+    return;
+  }
+
+  const iso = gameControlState.stageStartedAt;
+  if (!iso) {
+    setStageTimerText(`Etapa ${stagePart} — Tiempo: --:--`, "warn");
+    return;
+  }
+
+  const startedAt = Date.parse(iso);
+  if (!Number.isFinite(startedAt)) {
+    setStageTimerText(`Etapa ${stagePart} — Tiempo: --:--`, "warn");
+    return;
+  }
+
+  const elapsed = Date.now() - startedAt;
+  const remaining = STAGE_DURATION_MS - elapsed;
+  const label = `Etapa ${stagePart} — Tiempo: ${formatCountdown(remaining)}`;
+  setStageTimerText(label, remaining <= 10_000 ? "warn" : "ok");
+
+  if (remaining <= 0) {
+    handleStageTimeout(iso);
+  }
+}
+
+function ensureStageTimerRunning() {
+  if (!stageTimerEl) return;
+  if (stageTimerIntervalId) return;
+  stageTimerIntervalId = window.setInterval(() => updateStageTimerUI(), 250);
+}
 
 function getPartForProblem(problem) {
   if (!problem || !problem.type) return 1;
@@ -339,8 +541,8 @@ function showAdminBlockModal(title, message) {
   modalTitle.textContent = title;
   modalMessage.textContent = message;
   modalDetails.innerHTML = "";
-  modalCloseBtn.textContent = "Reintentar";
-  modalCloseBtn.disabled = false;
+  modalCloseBtn.textContent = "Esperando...";
+  modalCloseBtn.disabled = true;
   modalOverlay.dataset.kind = "admin-block";
   modalOverlay.style.display = "flex";
 }
@@ -360,11 +562,97 @@ async function refreshGameControl() {
 
     gameControlState.paused = Boolean(data.paused);
     gameControlState.unlockedPart = Number(data.unlockedPart) || 3;
+    gameControlState.stageStartedAt =
+      typeof data.stageStartedAt === "string" && data.stageStartedAt.length > 0
+        ? data.stageStartedAt
+        : null;
+    gameControlState.status =
+      data.status === "idle" ||
+      data.status === "lobby" ||
+      data.status === "running"
+        ? data.status
+        : "idle";
+    gameControlState.joinOpen = Boolean(data.joinOpen);
     gameControlState.loaded = true;
+
+    // Lobby/idle UX: do not run countdown or show gameplay.
+    if (gameControlState.status !== "running") {
+      gameplayStarted = false;
+      document.getElementById("stage").style.display = "none";
+      hideStageTimer();
+      hardCloseModalOverlay();
+      pendingLockedPart = null;
+
+      showWelcomeOverlay();
+
+      if (playerJoined) {
+        setWelcomeView({
+          title: "Esperando al admin",
+          hint: "El juego iniciará cuando el admin presione Iniciar juego.",
+          showJoinForm: true,
+          joinEnabled: false,
+          buttonText: "Esperando...",
+          statusText: "Registrado. Espera el inicio.",
+          statusKind: "info",
+        });
+      } else if (
+        gameControlState.status === "lobby" &&
+        gameControlState.joinOpen
+      ) {
+        setWelcomeView({
+          title: "Esperando a jugadores",
+          hint: "Ingresa tu nombre para unirte.",
+          showJoinForm: true,
+          joinEnabled: true,
+          buttonText: "Entrar",
+          statusText: "",
+          statusKind: "",
+        });
+      } else {
+        setWelcomeView({
+          title: "Esperando a jugadores",
+          hint: "El admin debe crear el juego para habilitar el registro.",
+          showJoinForm: false,
+          joinEnabled: false,
+          buttonText: "Entrar",
+          statusText: "",
+          statusKind: "",
+        });
+      }
+
+      return;
+    }
+
+    // Game is running: join is closed.
+    if (!playerJoined) {
+      document.getElementById("stage").style.display = "none";
+      hideStageTimer();
+      showWelcomeOverlay();
+      setWelcomeView({
+        title: "Juego en curso",
+        hint: "Ya no se permiten jugadores nuevos.",
+        showJoinForm: false,
+        joinEnabled: false,
+        buttonText: "Entrar",
+        statusText: "",
+        statusKind: "",
+      });
+      return;
+    }
+
+    startGameplayOnce();
     applyPauseToStage();
 
+    if (!gameEnded) {
+      ensureStageTimerRunning();
+      updateStageTimerUI();
+    }
+
     const effectiveProblem = getEffectiveProblemForGate();
-    const effectivePart = getPartForProblem(effectiveProblem);
+    let effectivePart = getPartForProblem(effectiveProblem);
+    if (typeof pendingLockedPart === "number") {
+      effectivePart = Math.max(effectivePart, pendingLockedPart);
+    }
 
     if (gameControlState.paused) {
       showAdminBlockModal(
@@ -376,12 +664,12 @@ async function refreshGameControl() {
 
     if (effectivePart > gameControlState.unlockedPart) {
       showAdminBlockModal(
-        "Parte bloqueada",
-        `El admin aún no habilita ${getPartLabel(effectivePart)}.`,
+        "Esperando al admin",
+        `Para continuar, el admin debe habilitar ${getPartLabel(effectivePart)}.`,
       );
       return;
     }
-
+    pendingLockedPart = null;
     hideAdminBlockModalIfOpen();
   } catch (_err) {
     // If server is unreachable, don't hard-block the local UI.
@@ -417,13 +705,7 @@ function resetGame() {
 function goToNextProblem() {
   if (gameState.roundIndex < PROBLEMS.length - 1) {
     gameState.roundIndex += 1;
-    gameState.latestRun = null;
-    gameState.activeBlockIds = ["base"];
-    gameState.currentProblemSolved = false;
-    gameState.hasFailedCurrentProblem = false;
-    gameState.disabledBlockIds = [];
-    gameState.selectedScenarioIndex = null;
-    gameState.disabledScenarioIndices = [];
+    resetPerProblemState();
   }
   updateUI();
 
@@ -433,6 +715,10 @@ function goToNextProblem() {
 
 function showModal(success, problem, actualOutput, cost) {
   const modalContent = document.querySelector(".modal-content");
+  modalCloseBtn.disabled = false;
+  if (modalOverlay.dataset && modalOverlay.dataset.kind) {
+    delete modalOverlay.dataset.kind;
+  }
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -464,6 +750,10 @@ function showModal(success, problem, actualOutput, cost) {
 
 function showWarningModal() {
   const modalContent = document.querySelector(".modal-content");
+  modalCloseBtn.disabled = false;
+  if (modalOverlay.dataset && modalOverlay.dataset.kind) {
+    delete modalOverlay.dataset.kind;
+  }
   modalContent.className = "modal-content modal-failure";
   modalTitle.textContent = "Atención";
   modalMessage.textContent =
@@ -498,6 +788,12 @@ function closeModal() {
     const nextProblem = PROBLEMS[gameState.roundIndex + 1];
     const nextPart = getPartForProblem(nextProblem);
     if (nextPart > gameControlState.unlockedPart) {
+      pendingLockedPart = nextPart;
+
+      // Move immediately to the next stage start so when the admin unlocks it,
+      // the player can continue without another click.
+      moveToPartStart(nextPart);
+
       showAdminBlockModal(
         "Esperando al admin",
         `Para continuar, el admin debe habilitar ${getPartLabel(nextPart)}.`,
@@ -521,6 +817,14 @@ function closeModal() {
 async function showFinalScreen() {
   // Enviar datos al servidor
   await submitAttempt();
+
+  gameEnded = true;
+
+  if (stageTimerIntervalId) {
+    window.clearInterval(stageTimerIntervalId);
+    stageTimerIntervalId = null;
+  }
+  hideStageTimer();
 
   if (progressHeartbeatId) {
     window.clearInterval(progressHeartbeatId);
@@ -637,6 +941,10 @@ function runScenarioRound() {
 
 function showScenarioResultModal(success, problem, selectedText, cost) {
   const modalContent = document.querySelector(".modal-content");
+  modalCloseBtn.disabled = false;
+  if (modalOverlay.dataset && modalOverlay.dataset.kind) {
+    delete modalOverlay.dataset.kind;
+  }
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -697,6 +1005,10 @@ function handleValidationAnswer(userAnsweredYes) {
 
 function showValidationResultModal(success, problem, cost) {
   const modalContent = document.querySelector(".modal-content");
+  modalCloseBtn.disabled = false;
+  if (modalOverlay.dataset && modalOverlay.dataset.kind) {
+    delete modalOverlay.dataset.kind;
+  }
 
   if (success) {
     modalContent.className = "modal-content modal-success";
@@ -1231,6 +1543,10 @@ function updateUI() {
 
 // ========== REGISTRATION ==========
 const welcomeOverlay = document.getElementById("welcome-overlay");
+const welcomeTitleEl = document.getElementById("welcome-title");
+const welcomeHintEl = document.getElementById("welcome-hint");
+const welcomeFormEl = document.getElementById("welcome-form");
+const welcomeActionsEl = document.getElementById("welcome-actions");
 const registerNameInput = document.getElementById("register-name");
 const startGameBtn = document.getElementById("start-game");
 const welcomeStatus = document.getElementById("welcome-status");
@@ -1238,8 +1554,72 @@ const welcomeStatus = document.getElementById("welcome-status");
 let currentPlayer = null;
 let progressHeartbeatId = null;
 let submitInFlight = false;
+let playerJoined = false;
+let gameplayStarted = false;
 
 startGameBtn.addEventListener("click", handleStartGame);
+
+function setWelcomeView({
+  title,
+  hint,
+  showJoinForm,
+  joinEnabled,
+  buttonText,
+  statusText,
+  statusKind,
+}) {
+  if (welcomeTitleEl) welcomeTitleEl.textContent = title;
+  if (welcomeHintEl) welcomeHintEl.textContent = hint;
+
+  if (welcomeFormEl) welcomeFormEl.style.display = showJoinForm ? "" : "none";
+  if (welcomeActionsEl)
+    welcomeActionsEl.style.display = showJoinForm ? "" : "none";
+
+  registerNameInput.disabled = !joinEnabled;
+  startGameBtn.disabled = !joinEnabled;
+  startGameBtn.textContent = buttonText;
+
+  if (statusText) {
+    welcomeStatus.textContent = statusText;
+    welcomeStatus.className = `status-pill ${statusKind || ""}`.trim();
+    welcomeStatus.style.display = "block";
+  } else {
+    welcomeStatus.textContent = "";
+    welcomeStatus.className = "status-pill";
+    welcomeStatus.style.display = "none";
+  }
+}
+
+function showWelcomeOverlay() {
+  welcomeOverlay.style.display = "flex";
+}
+
+function hideWelcomeOverlay() {
+  welcomeOverlay.style.display = "none";
+}
+
+function startGameplayOnce() {
+  if (!currentPlayer) return;
+  if (gameplayStarted) return;
+
+  gameplayStarted = true;
+  gameEnded = false;
+
+  hideWelcomeOverlay();
+  document.getElementById("stage").style.display = "grid";
+
+  resetGame();
+  syncCanvasResolution();
+
+  ensureStageTimerRunning();
+  updateStageTimerUI();
+
+  void submitAttempt();
+  if (progressHeartbeatId) {
+    window.clearInterval(progressHeartbeatId);
+  }
+  progressHeartbeatId = window.setInterval(() => void submitAttempt(), 3000);
+}
 
 function handleStartGame() {
   const username = registerNameInput.value.trim();
@@ -1250,20 +1630,24 @@ function handleStartGame() {
   }
 
   currentPlayer = { username };
+  playerJoined = true;
 
-  // Ocultar overlay y mostrar juego
-  welcomeOverlay.style.display = "none";
-  document.getElementById("stage").style.display = "grid";
+  // After joining, wait for the admin to start the game.
+  showWelcomeOverlay();
+  document.getElementById("stage").style.display = "none";
+  hideStageTimer();
 
-  resetGame();
-  syncCanvasResolution();
+  setWelcomeView({
+    title: "Esperando al admin",
+    hint: "El juego iniciará cuando el admin presione Iniciar juego.",
+    showJoinForm: true,
+    joinEnabled: false,
+    buttonText: "Esperando...",
+    statusText: "Registrado. Espera el inicio.",
+    statusKind: "info",
+  });
 
-  // Initial snapshot + heartbeat for real-time leaderboard.
-  void submitAttempt();
-  if (progressHeartbeatId) {
-    window.clearInterval(progressHeartbeatId);
-  }
-  progressHeartbeatId = window.setInterval(() => void submitAttempt(), 3000);
+  void refreshGameControl();
 }
 
 function showWelcomeStatus(message, type = "info") {
@@ -1326,8 +1710,19 @@ async function submitAttempt() {
 
 window.addEventListener("DOMContentLoaded", () => {
   // Iniciar con el overlay visible
-  welcomeOverlay.style.display = "flex";
+  showWelcomeOverlay();
   document.getElementById("stage").style.display = "none";
+  hideStageTimer();
+
+  setWelcomeView({
+    title: "Esperando a jugadores",
+    hint: "El admin debe crear el juego para habilitar el registro.",
+    showJoinForm: false,
+    joinEnabled: false,
+    buttonText: "Entrar",
+    statusText: "",
+    statusKind: "",
+  });
 
   void refreshGameControl();
   window.setInterval(() => void refreshGameControl(), 2000);

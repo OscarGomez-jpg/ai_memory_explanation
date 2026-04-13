@@ -29,10 +29,17 @@
       </div>
 
       <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+        <button type="button" id="create-game">Crear juego</button>
+        <button type="button" id="start-game-admin">Iniciar juego</button>
         <button type="button" id="unlock-part-1">Desbloquear parte 1</button>
         <button type="button" id="unlock-part-2">Desbloquear parte 2</button>
         <button type="button" id="unlock-part-3">Desbloquear parte 3</button>
         <button type="button" id="toggle-pause">Pausar</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 10px 0;">
+        <div id="dataset-reset-status" class="status-pill" aria-live="polite"></div>
+        <button type="button" id="dataset-reset">Reiniciar dataset</button>
       </div>
 
       <div style="margin-top: 14px; border-top: 1px dashed #94a3b8; padding-top: 12px;">

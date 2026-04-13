@@ -40,6 +40,9 @@ const store = {
   gameControl: {
     paused: false,
     unlockedPart: 3,
+    stageStartedAt: null,
+    status: "idle",
+    joinOpen: false,
   },
   loaded: false,
   writeInFlight: Promise.resolve(),
@@ -94,14 +97,35 @@ async function ensureStoreLoaded() {
   if (data && data.gameControl && typeof data.gameControl === "object") {
     const paused = data.gameControl.paused;
     const unlockedPart = data.gameControl.unlockedPart;
+    const stageStartedAt = data.gameControl.stageStartedAt;
+
+    const statusRaw = data.gameControl.status;
+    const joinOpenRaw = data.gameControl.joinOpen;
+    const status =
+      statusRaw === "idle" || statusRaw === "lobby" || statusRaw === "running"
+        ? statusRaw
+        : "idle";
+    const joinOpen = typeof joinOpenRaw === "boolean" ? joinOpenRaw : false;
+
     store.gameControl = {
       paused: typeof paused === "boolean" ? paused : false,
       unlockedPart:
         Number.isInteger(unlockedPart) && unlockedPart >= 1 && unlockedPart <= 3
           ? unlockedPart
           : 3,
+      stageStartedAt:
+        typeof stageStartedAt === "string" && stageStartedAt.length > 0
+          ? stageStartedAt
+          : null,
+      status,
+      joinOpen,
     };
   }
+
+  // If this is legacy data (no status/joinOpen), default to idle.
+  if (!store.gameControl.status) store.gameControl.status = "idle";
+  if (typeof store.gameControl.joinOpen !== "boolean")
+    store.gameControl.joinOpen = false;
 
   store.loaded = true;
 }
@@ -252,11 +276,65 @@ app.post("/api/game-control", rateLimit, async (req, res) => {
   const { paused, unlockedPart } = parsed.data;
 
   if (typeof paused === "boolean") {
+    const wasPaused = store.gameControl.paused;
     store.gameControl.paused = paused;
+
+    // Keep it simple: when resuming the game, restart the stage timer.
+    if (wasPaused === true && paused === false) {
+      store.gameControl.stageStartedAt = new Date().toISOString();
+    }
   }
   if (typeof unlockedPart === "number") {
+    if (store.gameControl.unlockedPart !== unlockedPart) {
+      store.gameControl.stageStartedAt = new Date().toISOString();
+    }
     store.gameControl.unlockedPart = unlockedPart;
   }
+
+  await queuePersist();
+
+  res.json({ ok: true, gameControl: store.gameControl });
+});
+
+app.post("/api/admin/reset", rateLimit, async (_req, res) => {
+  await ensureStoreLoaded();
+
+  store.attempts = [];
+  store.gameControl = {
+    paused: false,
+    unlockedPart: 1,
+    stageStartedAt: null,
+    status: "idle",
+    joinOpen: false,
+  };
+
+  await queuePersist();
+
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/create-game", rateLimit, async (_req, res) => {
+  await ensureStoreLoaded();
+
+  store.gameControl.status = "lobby";
+  store.gameControl.joinOpen = true;
+  store.gameControl.paused = false;
+  store.gameControl.unlockedPart = 1;
+  store.gameControl.stageStartedAt = null;
+
+  await queuePersist();
+
+  res.json({ ok: true, gameControl: store.gameControl });
+});
+
+app.post("/api/admin/start-game", rateLimit, async (_req, res) => {
+  await ensureStoreLoaded();
+
+  store.gameControl.status = "running";
+  store.gameControl.joinOpen = false;
+  store.gameControl.paused = false;
+  store.gameControl.unlockedPart = 1;
+  store.gameControl.stageStartedAt = new Date().toISOString();
 
   await queuePersist();
 
